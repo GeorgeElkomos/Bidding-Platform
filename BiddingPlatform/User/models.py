@@ -42,13 +42,13 @@ class User(AbstractBaseUser, PermissionsMixin):
     User_Id = models.AutoField(primary_key=True)
     username = models.CharField(max_length=150, unique=True)
     email = models.EmailField(unique=True)
-    name = models.CharField(max_length=100, unique=True, blank=True)
+    name = models.CharField(max_length=100, blank=True)
     address = models.CharField(max_length=255, blank=True)
     phone_number = models.CharField(max_length=15, blank=True)
     email = models.EmailField(unique=True, blank=True)
     website = models.URLField(blank=True)
     CR_number = models.CharField(
-        max_length=50, unique=True, blank=True
+        max_length=50, blank=True
     )  # Commercial Registration number
 
     Is_Accepted = models.BooleanField(

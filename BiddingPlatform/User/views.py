@@ -51,11 +51,9 @@ class List_UserView(APIView):
     """View to list all companies."""
 
     def get(self, request):
-        print("Hello")
-        users = User.objects.get(
+        users = User.objects.filter(
             is_superuser=False
         )  # Assuming companies are not superusers
-        print(len(users))
         user_data = [
             {
                 "user_Id": user.User_Id,
@@ -139,6 +137,7 @@ class User_RegesterView(APIView):
 
                 company_data = json.loads(company_data)
 
+            print("Data", company_data)
             # Create the user
             user = User.objects.create(
                 username=company_data.get("username"),
@@ -186,5 +185,60 @@ class Delete_All_UsersView(APIView):
         try:
             User.objects.all().delete()
             return Response({"message": "All users deleted successfully."}, status=204)
+        except Exception as e:
+            return Response({"error": str(e)}, status=400)
+
+
+class Create_Super_User(APIView):
+    """View to create a superuser."""
+
+    def post(self, request):
+        try:
+            username = request.data.get("username")
+            email = request.data.get("email")
+            password = request.data.get("password")
+            print("Creating superuser with data:", username, email, password)
+            if not username or not email or not password:
+                return Response(
+                    {"error": "Username, email, and password are required."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            user = User.objects.create_superuser(
+                username=username, email=email, password=password
+            )
+            return Response(
+                {"message": "Superuser created successfully.", "User_Id": user.User_Id},
+                status=status.HTTP_201_CREATED,
+            )
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class Account_Request_Respond(APIView):
+    """View to respond to account requests."""
+
+    def post(self, request):
+        try:
+            User_Id = request.data.get("User_Id")
+            response = request.data.get("response")  # Accept or Reject
+
+            user = User.objects.get(User_Id=User_Id)
+            if response == "Accept":
+                user.Is_Accepted = True
+            elif response == "Reject":
+                user.Is_Accepted = False
+            else:
+                return Response(
+                    {"error": "Invalid response. Use 'Accept' or 'Reject'."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            user.save()
+            return Response(
+                {"message": f"User {response.lower()}ed successfully."}, status=200
+            )
+        except User.DoesNotExist:
+            return Response({"error": "User not found."}, status=404)
         except Exception as e:
             return Response({"error": str(e)}, status=400)
