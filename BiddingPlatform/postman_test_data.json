@@ -1,0 +1,127 @@
+{
+    "endpoints": {
+        "user_register": {
+            "url": "http://localhost:8000/api/user/register/",
+            "method": "POST",
+            "note": "Use Form-Data in Postman instead of raw JSON for this endpoint",
+            "form_data": {
+                "username": "john_doe",
+                "email": "john.doe@example.com",
+                "password": "SecurePass123!"
+            },
+            "expected_response": {
+                "message": "User created successfully.",
+                "Token": "your_access_token_will_appear_here"
+            }
+        },
+        "user_login": {
+            "url": "http://localhost:8000/api/user/login/",
+            "method": "POST",
+            "body": {
+                "username": "john_doe",
+                "password": "SecurePass123!"
+            },
+            "expected_response": {
+                "message": "Login successful.",
+                "Token": "your_access_token_will_appear_here"
+            }
+        },
+        "update_user_info": {
+            "url": "http://localhost:8000/api/user/update/",
+            "method": "POST",
+            "headers": {
+                "Authorization": "Bearer your_access_token_here"
+            },
+            "body": {
+                "first_name": "John",
+                "last_name": "Doe"
+            },
+            "expected_response": {
+                "message": "User information updated successfully."
+            }
+        },
+        "list_users": {
+            "url": "http://localhost:8000/api/user/list/",
+            "method": "GET",
+            "expected_response": {
+                "example_response": [
+                    {
+                        "user_Id": 1,
+                        "username": "john_doe",
+                        "name": "John Doe",
+                        "email": "john.doe@example.com"
+                    }
+                ]
+            }
+        },
+        "user_details": {
+            "url": "http://localhost:8000/api/user/details/?User_Id=1",
+            "method": "GET",
+            "expected_response": {
+                "User_Id": 1,
+                "username": "john_doe",
+                "name": "John Doe",
+                "address": "123 Main St",
+                "phone_number": "+1234567890",
+                "email": "john.doe@example.com",
+                "website": "www.johndoe.com",
+                "CR_number": "CR123456",
+                "Is_Accepted": true,
+                "VAT_certificates": [
+                    {
+                        "file_name": "vat_cert_2023.pdf",
+                        "file_type": "application/pdf",
+                        "file_size": 1024,
+                        "uploaded_at": "2023-05-27T12:34:56Z"
+                    }
+                ]
+            }
+        },
+        "user_register_with_vat": {
+            "url": "http://localhost:8000/api/user/register-full/",
+            "method": "POST",
+            "body": {
+                "company_data": {
+                    "username": "acme_corp",
+                    "password": "SecurePass123!",
+                    "name": "ACME Corporation",
+                    "address": "456 Business Ave",
+                    "phone_number": "+1987654321",
+                    "email": "contact@acmecorp.com",
+                    "website": "www.acmecorp.com",
+                    "CR_number": "CR789012"
+                },
+                "company_VAT_data": [
+                    {
+                        "File_Name": "acme_vat_2023.pdf",
+                        "File_Type": "application/pdf",
+                        "File_Size": 2048,
+                        "File_Data": "base64_encoded_content_here"
+                    }
+                ]
+            },
+            "expected_response": {
+                "message": "Company registered successfully.",
+                "User_Id": 2
+            }
+        }
+    },
+    "postman_setup_instructions": {
+        "user_register_form_data": {
+            "step1": "In Postman, select POST method and enter the user register URL",
+            "step2": "Go to the 'Body' tab",
+            "step3": "Select 'form-data' instead of 'raw'",
+            "step4": "Add the following key-value pairs:",
+            "fields": {
+                "username": "john_doe",
+                "email": "john.doe@example.com",
+                "password": "SecurePass123!"
+            }
+        },
+        "authentication": {
+            "step1": "After login, copy the Token from the response",
+            "step2": "For protected endpoints, go to the 'Headers' tab",
+            "step3": "Add header: 'Authorization' with value 'Bearer your_token_here'"
+        }
+    }
+}
