@@ -1,0 +1,471 @@
+from django.shortcuts import render
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+
+from Tender.permissions import IsCompany, IsSuperUser
+
+from .models import Bit, Bit_Files
+from Tender.models import Tender
+
+
+# Create your views here.
+class Get_All_Bits_For_TenderView(APIView):
+    """
+    View to get all bits for a specific tender.
+    """
+
+    permission_classes = [IsAuthenticated, IsSuperUser]
+
+    def get(self, request):
+        try:
+            tender_id = request.query_params.get("tender_id")
+            if not tender_id:
+                return Response(
+                    {"error": "tender_id is required"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            tender = Tender.objects.get(tender_id=tender_id)
+            bits = Bit.objects.filter(tender=tender)
+
+            print("************************")
+            # Serialize the bits data
+            bits_data = [
+                {
+                    "bit_id": bit.bit_id,
+                    "title": bit.title,
+                    # "description": bit.description,
+                    "date": bit.date,
+                    "created_by": (
+                        {
+                            "user_id": bit.created_by.User_Id,
+                            "username": bit.created_by.username,
+                        }
+                        if bit.created_by
+                        else None
+                    ),
+                    "cost": str(bit.cost),  # Convert Decimal to string
+                    # "files": [
+                    #     {
+                    #         "file_id": file.file_id,
+                    #         "file_name": file.file_name,
+                    #         "file_type": file.file_type,
+                    #         "file_size": file.file_size,
+                    #         "uploaded_at": file.Uploaded_At,
+                    #     }
+                    #     for file in bit.files.all()
+                    # ],
+                }
+                for bit in bits
+            ]
+
+            return Response(bits_data, status=status.HTTP_200_OK)
+
+        except Tender.DoesNotExist:
+            return Response(
+                {"error": "Tender not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+class Get_All_My_BitsView(APIView):
+    """
+    View to get all bits created by the authenticated user.
+    """
+
+    permission_classes = [IsAuthenticated, IsCompany]
+
+    def get(self, request):
+        try:
+            user = request.user
+            bits = Bit.objects.filter(created_by=user)
+            print("User Email", user.email)
+            # Serialize the bits data
+            bits_data = [
+                {
+                    "bit_id": bit.bit_id,
+                    "title": bit.title,
+                    # "description": bit.description,
+                    "date": bit.date,
+                    # "created_by": (
+                    #     {
+                    #         "user_id": bit.created_by.User_Id,
+                    #         "username": bit.created_by.username,
+                    #     }
+                    #     if bit.created_by
+                    #     else None
+                    # ),
+                    "cost": str(bit.cost),  # Convert Decimal to string
+                    "tender": {
+                        "tender_id": bit.tender.tender_id,
+                        "title": bit.tender.title,
+                    },
+                    # "files": [
+                    #     {
+                    #         "file_id": file.file_id,
+                    #         "file_name": file.file_name,
+                    #         "file_type": file.file_type,
+                    #         "file_size": file.file_size,
+                    #         "uploaded_at": file.Uploaded_At,
+                    #     }
+                    #     for file in bit.files.all()
+                    # ],
+                }
+                for bit in bits
+            ]
+
+            return Response(bits_data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+class Get_Bit_DetailView(APIView):
+    """
+    View to get the details of a specific bit.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            bit_id = request.query_params.get("bit_id")
+            if not bit_id:
+                return Response(
+                    {"error": "bit_id is required"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            bit = Bit.objects.get(bit_id=bit_id)
+
+            # Serialize the bit data
+            bit_data = {
+                "bit_id": bit.bit_id,
+                "title": bit.title,
+                "description": bit.description,
+                "date": bit.date,
+                "created_by": (
+                    {
+                        "user_id": bit.created_by.User_Id,
+                        "username": bit.created_by.username,
+                    }
+                    if bit.created_by
+                    else None
+                ),
+                "cost": str(bit.cost),  # Convert Decimal to string
+                "tender": {
+                    "tender_id": bit.tender.tender_id,
+                    "title": bit.tender.title,
+                },
+                "files": [
+                    {
+                        "file_id": file.file_id,
+                        "file_name": file.file_name,
+                        "file_type": file.file_type,
+                        "file_size": file.file_size,
+                        "uploaded_at": file.Uploaded_At,
+                    }
+                    for file in bit.files.all()
+                ],
+            }
+
+            return Response(bit_data, status=status.HTTP_200_OK)
+
+        except Bit.DoesNotExist:
+            return Response(
+                {"error": "Bit not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+class Get_BitFile_Data(APIView):
+    """
+    View to get the file data of a specific bit file.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            file_id = request.query_params.get("file_id")
+            if not file_id:
+                return Response(
+                    {"error": "file_id is required"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            bit_file = Bit_Files.objects.get(file_id=file_id)
+
+            # Return the file data as a binary response
+            response = Response(bit_file.file_data, content_type=bit_file.file_type)
+            response["Content-Disposition"] = (
+                f'attachment; filename="{bit_file.file_name}"'
+            )
+            return response
+        except Bit_Files.DoesNotExist:
+            return Response(
+                {"error": "File not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+class Create_BitView(APIView):
+    """
+    View to create a new bit.
+    """
+
+    permission_classes = [IsAuthenticated, IsCompany]
+
+    def post(self, request):
+        try:
+            data = request.data
+            tender_id = data.get("tender_id")
+            if not tender_id:
+                return Response(
+                    {"error": "tender_id is required"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            tender = Tender.objects.get(tender_id=tender_id)
+            user = request.user
+
+            bit = Bit.objects.create(
+                title=data.get("title"),
+                description=data.get("description"),
+                date=data.get("date"),
+                created_by=user,
+                tender=tender,
+                cost=data.get("cost"),
+            )
+            # Handle file uploads
+            vat_files = request.FILES.getlist("files")
+            if vat_files:
+                for file in vat_files:
+                    # Read the file data
+                    file_data = file.read()
+
+                    # Create the attachment record
+                    Bit_Files.objects.create(
+                        bit=bit,
+                        file_name=file.name,
+                        file_type=file.content_type,
+                        file_size=file.size,
+                        file_data=file_data,
+                    )
+            return Response(
+                {"message": "Bit created successfully", "bit_id": bit.bit_id},
+                status=status.HTTP_201_CREATED,
+            )
+        except Tender.DoesNotExist:
+            return Response(
+                {"error": "Tender not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class Add_BitFileView(APIView):
+    """View to add a file to an existing bit."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        data = request.data
+        try:
+            bit_id = data.get("bit_id")
+            if not bit_id:
+                return Response(
+                    {"error": "bit_id is required"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            bit = Bit.objects.get(bit_id=bit_id)
+
+            # Handle file uploads
+            vat_files = request.FILES.getlist("files")
+            if vat_files:
+                for file in vat_files:
+                    # Read the file data
+                    file_data = file.read()
+
+                    # Create the attachment record
+                    Bit_Files.objects.create(
+                        bit=bit,
+                        file_name=file.name,
+                        file_type=file.content_type,
+                        file_size=file.size,
+                        file_data=file_data,
+                    )
+
+            return Response(
+                {"message": "File added successfully."},
+                status=status.HTTP_201_CREATED,
+            )
+        except Bit.DoesNotExist:
+            return Response(
+                {"error": "Bit not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+class Delete_BitFileView(APIView):
+    """View to delete a specific tender file by ID."""
+
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request):
+        try:
+            file_id = request.query_params.get("file_id")
+            if not file_id:
+                return Response(
+                    {"error": "file_id is required"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            Bit_file = Bit_Files.objects.get(file_id=file_id)
+            Bit_file.delete()
+
+            return Response(
+                {"message": "Bit file deleted successfully."},
+                status=status.HTTP_200_OK,
+            )
+        except Bit_Files.DoesNotExist:
+            return Response(
+                {"error": "File not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+class Delete_BitView(APIView):
+    """View to delete a specific bit by ID."""
+
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request):
+        try:
+            bit_id = request.data.get("bit_id")
+            if not bit_id:
+                return Response(
+                    {"error": "bit_id is required"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            bit = Bit.objects.get(bit_id=bit_id)
+            bit.delete()
+
+            return Response(
+                {"message": "Bit deleted successfully."},
+                status=status.HTTP_200_OK,
+            )
+        except Bit.DoesNotExist:
+            return Response(
+                {"error": "Bit not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+class Update_BitView(APIView):
+    """View to update an existing bit."""
+
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request):
+        try:
+            data = request.data
+            bit_id = data.get("bit_id")
+            if not bit_id:
+                return Response(
+                    {"error": "bit_id is required"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            bit = Bit.objects.get(bit_id=bit_id)
+
+            # Update the bit fields
+            bit.title = data.get("title", bit.title)
+            bit.description = data.get("description", bit.description)
+            bit.date = data.get("date", bit.date)
+            bit.cost = data.get("cost", bit.cost)
+            bit.save()
+
+            return Response(
+                {"message": "Bit updated successfully."},
+                status=status.HTTP_200_OK,
+            )
+        except Bit.DoesNotExist:
+            return Response(
+                {"error": "Bit not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+class Bit_Request_RespondView(APIView):
+    """View to respond to a bit (accept or reject)."""
+
+    permission_classes = [IsAuthenticated, IsSuperUser]
+
+    def post(self, request):
+        try:
+            data = request.data
+            bit_id = data.get("bit_id")
+            if not bit_id:
+                return Response(
+                    {"error": "bit_id is required"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            bit = Bit.objects.get(bit_id=bit_id)
+            action = data.get("action")  # 'Accept' or 'Reject'
+
+            if action == "Accept":
+                bit.Is_Accepted = True
+            elif action == "Reject":
+                bit.Is_Accepted = False
+            else:
+                return Response(
+                    {"error": "Invalid action. Use 'Accept' or 'Reject'."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            bit.save()
+
+            return Response(
+                {"message": f"Bit {action}ed successfully."},
+                status=status.HTTP_200_OK,
+            )
+        except Bit.DoesNotExist:
+            return Response(
+                {"error": "Bit not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )

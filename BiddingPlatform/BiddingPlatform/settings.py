@@ -44,6 +44,8 @@ INSTALLED_APPS = [
     "corsheaders",
     # Local apps
     "User",
+    "Tender",
+    "Bit",
 ]
 
 AUTH_USER_MODEL = "User.User"  # Set the custom user model
@@ -81,6 +83,11 @@ REST_FRAMEWORK = {
     )
 }
 
+# SimpleJWT settings
+SIMPLE_JWT = {
+    "USER_ID_FIELD": "User_Id",  # The field in your User model that serves as the user ID
+    "USER_ID_CLAIM": "user_id",  # The claim name that will be used in the token
+}
 
 WSGI_APPLICATION = "BiddingPlatform.wsgi.application"
 
