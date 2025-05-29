@@ -15,7 +15,7 @@ class VAT_Certificate_Manager(models.Model):
         db_column="User_Id",
     )
     File_Name = models.CharField(max_length=100, unique=True)
-    File_Type = models.CharField(max_length=255, unique=True)
+    File_Type = models.CharField(max_length=255)
     File_Size = models.PositiveIntegerField()
     File_Data = models.BinaryField()
     Uploaded_At = models.DateTimeField(auto_now_add=True)

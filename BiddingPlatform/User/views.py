@@ -1,4 +1,5 @@
 from django.shortcuts import render
+from django.http import HttpResponse
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -117,12 +118,12 @@ class User_RegesterView(APIView):
     """View for User registration with file uploads.
     Handles User creation and VAT certificate file uploads.
     """
-
+    
     def post(self, request):
         """
-        This endpoint expects form-data with:
+        This endpoint expects multipart/form-data with:
         - company_data: JSON string containing user information
-        - vat_files: Multiple files
+        - vat_files: Multiple files as BLOB data
 
         Example form-data:
         company_data: {
@@ -135,23 +136,48 @@ class User_RegesterView(APIView):
             "website": "www.company.com",
             "CR_number": "CR123456"
         }
-        vat_files: [file1.pdf, file2.xlsx, file3.pdf]
+        vat_files: [file1.pdf, file2.xlsx, file3.pdf] (as BLOB data)
         """
         try:
             # Parse the company_data JSON string
             company_data = request.data.get("company_data")
             if isinstance(company_data, str):
                 import json
-
                 company_data = json.loads(company_data)
+            elif company_data is None:
+                return Response(
+                    {"error": "company_data is required."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Validate required fields
+            required_fields = ["username", "password", "name", "email"]
+            for field in required_fields:
+                if not company_data.get(field):
+                    return Response(
+                        {"error": f"{field} is required."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+            # Check if username already exists
+            if User.objects.filter(username=company_data.get("username")).exists():
+                return Response(
+                    {"error": "Username already exists."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Check if email already exists
+            if User.objects.filter(email=company_data.get("email")).exists():
+                return Response(
+                    {"error": "Email already exists."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
             # Create the user with create_user to properly hash the password
             user = User.objects.create_user(
                 username=company_data.get("username"),
-                password=company_data.get(
-                    "password"
-                ),  # This will be hashed automatically
-                email=company_data.get("email", ""),
+                password=company_data.get("password"),  # This will be hashed automatically
+                email=company_data.get("email"),
                 name=company_data.get("name"),
             )
 
@@ -162,31 +188,87 @@ class User_RegesterView(APIView):
             user.CR_number = company_data.get("CR_number", "")
             user.Is_Accepted = None  # Default to not accepted
             user.save()
-            # Handle file uploads
+
+            # Handle file uploads as BLOB data
             vat_files = request.FILES.getlist("vat_files")
+            uploaded_files = []
+            
             if vat_files:
                 for file in vat_files:
-                    # Read the file data
-                    file_data = file.read()
+                    try:
+                        # Validate file size (e.g., max 10MB)
+                        max_file_size = 10 * 1024 * 1024  # 10MB
+                        if file.size > max_file_size:
+                            return Response(
+                                {"error": f"File {file.name} is too large. Maximum size is 10MB."},
+                                status=status.HTTP_400_BAD_REQUEST,
+                            )
 
-                    # Create the attachment record
-                    VAT_Certificate_Manager.objects.create(
-                        User=user,
-                        File_Name=file.name,
-                        File_Type=file.content_type,
-                        File_Size=file.size,
-                        File_Data=file_data,
-                    )
+                        # Validate file type (optional - add allowed types)
+                        allowed_types = [
+                            'application/pdf',
+                            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                            'application/vnd.ms-excel',
+                            'image/jpeg',
+                            'image/png',
+                            'image/jpg'
+                        ]
+                        if file.content_type not in allowed_types:
+                            return Response(
+                                {"error": f"File type {file.content_type} is not allowed."},
+                                status=status.HTTP_400_BAD_REQUEST,
+                            )
+
+                        # Read the file data as BLOB
+                        file_data = file.read()
+                        
+                        # Reset file pointer in case it's needed later
+                        file.seek(0)
+
+                        # Create the VAT certificate record with BLOB data
+                        vat_cert = VAT_Certificate_Manager.objects.create(
+                            User=user,
+                            File_Name=file.name,
+                            File_Type=file.content_type,
+                            File_Size=file.size,
+                            File_Data=file_data,  # Store as BLOB
+                        )
+                        
+                        uploaded_files.append({
+                            "file_id": vat_cert.Id,
+                            "file_name": file.name,
+                            "file_size": file.size,
+                            "file_type": file.content_type
+                        })
+                        
+                    except Exception as file_error:
+                        # If there's an error with a specific file, clean up and return error
+                        user.delete()
+                        return Response(
+                            {"error": f"Error processing file {file.name}: {str(file_error)}"},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
 
             return Response(
                 {
                     "message": "Company registered successfully.",
                     "User_Id": user.User_Id,
+                    "uploaded_files": uploaded_files,
+                    "files_count": len(uploaded_files)
                 },
-                status=201,
+                status=status.HTTP_201_CREATED,
+            )
+            
+        except json.JSONDecodeError:
+            return Response(
+                {"error": "Invalid JSON format in company_data."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as e:
-            return Response({"error": str(e)}, status=400)
+            return Response(
+                {"error": f"Registration failed: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
 
 class Delete_All_UsersView(APIView):
@@ -281,29 +363,50 @@ class Get_UserFile_Data(APIView):
     def get(self, request):
         try:
             file_id = request.query_params.get("file_id")
+            
+            if not file_id:
+                return Response(
+                    {"error": "file_id parameter is required."}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
             vat_certificate = VAT_Certificate_Manager.objects.get(Id=file_id)
             file_data = vat_certificate.File_Data
 
-            # Return the file data as a binary response
-            response = Response(file_data, content_type=vat_certificate.File_Type)
+            # Return the file data as a binary HTTP response (not JSON)
+            response = HttpResponse(
+                file_data, 
+                content_type=vat_certificate.File_Type
+            )
             response["Content-Disposition"] = (
                 f'attachment; filename="{vat_certificate.File_Name}"'
             )
+            response["Content-Length"] = str(len(file_data))
+            
             return response
+            
         except VAT_Certificate_Manager.DoesNotExist:
-            return Response({"error": "File not found."}, status=404)
+            return Response(
+                {"error": "File not found."}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {"error": f"Error retrieving file: {str(e)}"}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class Add_UserFileView(APIView):
-    """View to add a VAT certificate file for a user.
+    """View to add multiple VAT certificate files for a user.
 
     Example request:
-    POST /api/add-user-file/
+    POST /api/User/add_user_file/
     Content-Type: multipart/form-data
 
     Form data:
     {
-        "file": [file1.pdf]  # Single file upload
+        "files": [file1.pdf, file2.pdf, file3.pdf]  # Multiple file upload
     }
     """
 
@@ -312,22 +415,48 @@ class Add_UserFileView(APIView):
     def post(self, request):
         try:
             user = request.user  # Get the authenticated user
-            files = request.FILES.get("file")
-            if not file:
+            files = request.FILES.getlist("files")
+            if not files:
                 return Response(
-                    {"error": "file is required."},
+                    {"error": "At least one file is required."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+            
+            uploaded_files = []
+            import datetime
+            import os
+            
             for file in files:
+                # Split the filename into name and extension
+                file_name, file_extension = os.path.splitext(file.name)
+                
+                # Add current timestamp to ensure uniqueness
+                timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+                unique_filename = f"{file_name}_{timestamp}{file_extension}"
+                
                 # Create a new VAT certificate record
-                VAT_Certificate_Manager.objects.create(
+                vat_cert = VAT_Certificate_Manager.objects.create(
                     User=user,
-                    File_Name=file.name,
+                    File_Name=unique_filename,  # Use the unique filename
                     File_Type=file.content_type,
                     File_Size=file.size,
                     File_Data=file.read(),
                 )
-            return Response({"message": "File uploaded successfully."}, status=201)
+                
+                uploaded_files.append({
+                    "file_id": vat_cert.Id,
+                    "file_name": unique_filename,
+                    "original_filename": file.name,
+                    "file_type": file.content_type,
+                    "file_size": file.size
+                })
+            
+            return Response({
+                "message": f"{len(uploaded_files)} file(s) uploaded successfully.",
+                "uploaded_files": uploaded_files,
+                "files_count": len(uploaded_files)
+            }, status=201)
+            
         except User.DoesNotExist:
             return Response({"error": "User not found."}, status=404)
         except Exception as e:

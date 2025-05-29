@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import datetime
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -87,6 +88,7 @@ REST_FRAMEWORK = {
 SIMPLE_JWT = {
     "USER_ID_FIELD": "User_Id",  # The field in your User model that serves as the user ID
     "USER_ID_CLAIM": "user_id",  # The claim name that will be used in the token
+    "ACCESS_TOKEN_LIFETIME": datetime.timedelta(hours=8),  # Set token to expire after 8 hours
 }
 
 WSGI_APPLICATION = "BiddingPlatform.wsgi.application"

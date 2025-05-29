@@ -275,7 +275,31 @@ class Create_BitView(APIView):
 
 
 class Add_BitFileView(APIView):
-    """View to add a file to an existing bit."""
+    """View to add multiple files to an existing bit.
+    
+    Example request:
+    POST /api/bit/add_file/
+    Content-Type: multipart/form-data
+    
+    Form data:
+    - bit_id: 123  (Required)
+    - files: [file1.pdf, file2.xlsx, file3.pdf]  (Multiple file upload)
+    
+    Response:
+    {
+        "message": "3 file(s) uploaded successfully.",
+        "uploaded_files": [
+            {
+                "file_id": 1,
+                "file_name": "document1.pdf",
+                "file_type": "application/pdf",
+                "file_size": 1024567
+            },
+            ...
+        ],
+        "files_count": 3
+    }
+    """
 
     permission_classes = [IsAuthenticated]
 
@@ -291,24 +315,54 @@ class Add_BitFileView(APIView):
 
             bit = Bit.objects.get(bit_id=bit_id)
 
-            # Handle file uploads
-            vat_files = request.FILES.getlist("files")
-            if vat_files:
-                for file in vat_files:
-                    # Read the file data
-                    file_data = file.read()
+            # Handle multiple file uploads
+            files = request.FILES.getlist("files")
+            if not files:
+                return Response(
+                    {"error": "At least one file is required"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            
+            uploaded_files = []
+            
+            for file in files:
+                # Read the file data as BLOB
+                file_data = file.read()
+                
+                # Create unique filenames with timestamp if needed
+                import datetime
+                import os
+                
+                # Split the filename into name and extension
+                file_name, file_extension = os.path.splitext(file.name)
+                
+                # Add current timestamp to ensure uniqueness
+                timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+                unique_filename = f"{file_name}_{timestamp}{file_extension}"
 
-                    # Create the attachment record
-                    Bit_Files.objects.create(
-                        bit=bit,
-                        file_name=file.name,
-                        file_type=file.content_type,
-                        file_size=file.size,
-                        file_data=file_data,
-                    )
+                # Create the attachment record with BLOB data
+                bit_file = Bit_Files.objects.create(
+                    bit=bit,
+                    file_name=unique_filename,
+                    file_type=file.content_type,
+                    file_size=file.size,
+                    file_data=file_data,
+                )
+                
+                uploaded_files.append({
+                    "file_id": bit_file.file_id,
+                    "file_name": unique_filename,
+                    "original_filename": file.name,
+                    "file_type": file.content_type,
+                    "file_size": file.size
+                })
 
             return Response(
-                {"message": "File added successfully."},
+                {
+                    "message": f"{len(uploaded_files)} file(s) uploaded successfully.",
+                    "uploaded_files": uploaded_files,
+                    "files_count": len(uploaded_files)
+                },
                 status=status.HTTP_201_CREATED,
             )
         except Bit.DoesNotExist:
