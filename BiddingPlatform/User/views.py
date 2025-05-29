@@ -48,8 +48,8 @@ class LoginView(APIView):
                     "data": {
                         "Token": str(Token.access_token),
                         "user_id": user.User_Id,
-                        "username": user.username
-                    }
+                        "username": user.username,
+                    },
                 },
                 status=status.HTTP_200_OK,
             )
@@ -62,6 +62,11 @@ class LoginView(APIView):
 
 class List_UserView(APIView):
     """View to list all companies."""
+
+    permission_classes = [
+        IsAuthenticated,
+        IsSuperUser,
+    ]  # Ensure the user is authenticated
 
     def get(self, request):
         users = User.objects.filter(
@@ -78,23 +83,28 @@ class List_UserView(APIView):
         ]
         return Response(
             {"message": "Users retrieved successfully", "data": user_data},
-            status=status.HTTP_200_OK
+            status=status.HTTP_200_OK,
         )
 
 
 class UserDetailView(APIView):
     """View to retrieve details of a specific User by ID."""
 
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
         try:
-            User_id = request.query_params.get("User_Id")
-            if not User_id:
-                return Response(
-                    {"message": "User_Id is required.", "data": []},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-                
-            user = User.objects.get(User_Id=User_id)
+            if IsSuperUser:
+                User_id = request.query_params.get("User_Id", request.user.User_Id)
+                if not User_id:
+                    return Response(
+                        {"message": "User_Id is required.", "data": []},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                user = User.objects.get(User_Id=User_id)
+            else:
+                user = request.user
             # Get all VAT certificates for the user
             vat_certificates = user.vat_certificates.all().order_by("-Uploaded_At")
 
@@ -125,17 +135,17 @@ class UserDetailView(APIView):
             }
             return Response(
                 {"message": "User details retrieved successfully", "data": User_data},
-                status=status.HTTP_200_OK
+                status=status.HTTP_200_OK,
             )
         except User.DoesNotExist:
             return Response(
-                {"message": "User not found.", "data": []}, 
-                status=status.HTTP_404_NOT_FOUND
+                {"message": "User not found.", "data": []},
+                status=status.HTTP_404_NOT_FOUND,
             )
         except Exception as e:
             return Response(
-                {"message": str(e), "data": []}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"message": str(e), "data": []},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 
@@ -143,7 +153,7 @@ class User_RegesterView(APIView):
     """View for User registration with file uploads.
     Handles User creation and VAT certificate file uploads.
     """
-    
+
     def post(self, request):
         """
         This endpoint expects multipart/form-data with:
@@ -168,6 +178,7 @@ class User_RegesterView(APIView):
             company_data = request.data.get("company_data")
             if isinstance(company_data, str):
                 import json
+
                 company_data = json.loads(company_data)
             elif company_data is None:
                 return Response(
@@ -201,7 +212,9 @@ class User_RegesterView(APIView):
             # Create the user with create_user to properly hash the password
             user = User.objects.create_user(
                 username=company_data.get("username"),
-                password=company_data.get("password"),  # This will be hashed automatically
+                password=company_data.get(
+                    "password"
+                ),  # This will be hashed automatically
                 email=company_data.get("email"),
                 name=company_data.get("name"),
             )
@@ -217,7 +230,7 @@ class User_RegesterView(APIView):
             # Handle file uploads as BLOB data
             vat_files = request.FILES.getlist("vat_files")
             uploaded_files = []
-            
+
             if vat_files:
                 for file in vat_files:
                     try:
@@ -225,28 +238,32 @@ class User_RegesterView(APIView):
                         max_file_size = 10 * 1024 * 1024  # 10MB
                         if file.size > max_file_size:
                             return Response(
-                                {"error": f"File {file.name} is too large. Maximum size is 10MB."},
+                                {
+                                    "error": f"File {file.name} is too large. Maximum size is 10MB."
+                                },
                                 status=status.HTTP_400_BAD_REQUEST,
                             )
 
                         # Validate file type (optional - add allowed types)
                         allowed_types = [
-                            'application/pdf',
-                            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                            'application/vnd.ms-excel',
-                            'image/jpeg',
-                            'image/png',
-                            'image/jpg'
+                            "application/pdf",
+                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            "application/vnd.ms-excel",
+                            "image/jpeg",
+                            "image/png",
+                            "image/jpg",
                         ]
                         if file.content_type not in allowed_types:
                             return Response(
-                                {"error": f"File type {file.content_type} is not allowed."},
+                                {
+                                    "error": f"File type {file.content_type} is not allowed."
+                                },
                                 status=status.HTTP_400_BAD_REQUEST,
                             )
 
                         # Read the file data as BLOB
                         file_data = file.read()
-                        
+
                         # Reset file pointer in case it's needed later
                         file.seek(0)
 
@@ -258,19 +275,23 @@ class User_RegesterView(APIView):
                             File_Size=file.size,
                             File_Data=file_data,  # Store as BLOB
                         )
-                        
-                        uploaded_files.append({
-                            "file_id": vat_cert.Id,
-                            "file_name": file.name,
-                            "file_size": file.size,
-                            "file_type": file.content_type
-                        })
-                        
+
+                        uploaded_files.append(
+                            {
+                                "file_id": vat_cert.Id,
+                                "file_name": file.name,
+                                "file_size": file.size,
+                                "file_type": file.content_type,
+                            }
+                        )
+
                     except Exception as file_error:
                         # If there's an error with a specific file, clean up and return error
                         user.delete()
                         return Response(
-                            {"error": f"Error processing file {file.name}: {str(file_error)}"},
+                            {
+                                "error": f"Error processing file {file.name}: {str(file_error)}"
+                            },
                             status=status.HTTP_400_BAD_REQUEST,
                         )
 
@@ -280,12 +301,12 @@ class User_RegesterView(APIView):
                     "User_Id": user.User_Id,
                     "data": {
                         "uploaded_files": uploaded_files,
-                        "files_count": len(uploaded_files)
-                    }
+                        "files_count": len(uploaded_files),
+                    },
                 },
                 status=status.HTTP_201_CREATED,
             )
-            
+
         except json.JSONDecodeError:
             return Response(
                 {"error": "Invalid JSON format in company_data."},
@@ -301,6 +322,11 @@ class User_RegesterView(APIView):
 class Delete_All_UsersView(APIView):
     """View to delete all users."""
 
+    permission_classes = [
+        IsAuthenticated,
+        IsSuperUser,
+    ]  # Ensure the user is authenticated
+
     def delete(self, request):
         try:
             User.objects.all().delete()
@@ -311,6 +337,11 @@ class Delete_All_UsersView(APIView):
 
 class Create_Super_User(APIView):
     """View to create a superuser."""
+
+    permission_classes = [
+        IsAuthenticated,
+        IsSuperUser,
+    ]  # Ensure the user is authenticated
 
     def post(self, request):
         try:
@@ -337,6 +368,11 @@ class Create_Super_User(APIView):
 
 class Account_Request_Respond(APIView):
     """View to respond to account requests."""
+
+    permission_classes = [
+        IsAuthenticated,
+        IsSuperUser,
+    ]  # Ensure the user is authenticated
 
     def post(self, request):
         try:
@@ -367,6 +403,11 @@ class Account_Request_Respond(APIView):
 class Get_All_Pending_Users(APIView):
     """View to get all pending users."""
 
+    permission_classes = [
+        IsAuthenticated,
+        IsSuperUser,
+    ]  # Ensure the user is authenticated
+
     def get(self, request):
         try:
             pending_users = User.objects.filter(Is_Accepted=None)
@@ -387,18 +428,20 @@ class Get_All_Pending_Users(APIView):
 class Get_UserFile_Data(APIView):
     """View to retrieve file data for a specific VAT certificate by ID."""
 
+    permission_classes = [IsAuthenticated]  # Ensure the user is authenticated
+
     def get(self, request):
         try:
             file_id = request.query_params.get("file_id")
-            
+
             if not file_id:
                 return Response(
-                    {"message": "file_id parameter is required.", "data": []}, 
-                    status=status.HTTP_400_BAD_REQUEST
+                    {"message": "file_id parameter is required.", "data": []},
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
-            
+
             vat_certificate = VAT_Certificate_Manager.objects.get(Id=file_id)
-            
+
             # For file downloads, we need to handle differently since we're returning binary data
             # We'll return metadata in a standard format when requested
             if request.query_params.get("metadata_only") == "true":
@@ -407,11 +450,14 @@ class Get_UserFile_Data(APIView):
                     "file_name": vat_certificate.File_Name,
                     "file_type": vat_certificate.File_Type,
                     "file_size": vat_certificate.File_Size,
-                    "uploaded_at": vat_certificate.Uploaded_At
+                    "uploaded_at": vat_certificate.Uploaded_At,
                 }
                 return Response(
-                    {"message": "File metadata retrieved successfully", "data": file_metadata},
-                    status=status.HTTP_200_OK
+                    {
+                        "message": "File metadata retrieved successfully",
+                        "data": file_metadata,
+                    },
+                    status=status.HTTP_200_OK,
                 )
             else:
                 # For actual file download, create a file-like object and return it
@@ -420,19 +466,19 @@ class Get_UserFile_Data(APIView):
                     file_stream,
                     content_type=vat_certificate.File_Type,
                     as_attachment=True,
-                    filename=vat_certificate.File_Name
+                    filename=vat_certificate.File_Name,
                 )
                 return response
-                
+
         except VAT_Certificate_Manager.DoesNotExist:
             return Response(
-                {"message": "File not found.", "data": []}, 
-                status=status.HTTP_404_NOT_FOUND
+                {"message": "File not found.", "data": []},
+                status=status.HTTP_404_NOT_FOUND,
             )
         except Exception as e:
             return Response(
-                {"message": f"Error retrieving file: {str(e)}", "data": []}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"message": f"Error retrieving file: {str(e)}", "data": []},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 
@@ -460,19 +506,19 @@ class Add_UserFileView(APIView):
                     {"message": "At least one file is required.", "data": []},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            
+
             uploaded_files = []
             import datetime
             import os
-            
+
             for file in files:
                 # Split the filename into name and extension
                 file_name, file_extension = os.path.splitext(file.name)
-                
+
                 # Add current timestamp to ensure uniqueness
                 timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
                 unique_filename = f"{file_name}_{timestamp}{file_extension}"
-                
+
                 # Create a new VAT certificate record
                 vat_cert = VAT_Certificate_Manager.objects.create(
                     User=user,
@@ -481,32 +527,36 @@ class Add_UserFileView(APIView):
                     File_Size=file.size,
                     File_Data=file.read(),
                 )
-                
-                uploaded_files.append({
-                    "file_id": vat_cert.Id,
-                    "file_name": unique_filename,
-                    "original_filename": file.name,
-                    "file_type": file.content_type,
-                    "file_size": file.size
-                })
-            
-            return Response({
-                "message": f"{len(uploaded_files)} file(s) uploaded successfully.",
-                "data": {
-                    "uploaded_files": uploaded_files,
-                    "files_count": len(uploaded_files)
-                }
-            }, status=status.HTTP_201_CREATED)
-            
+
+                uploaded_files.append(
+                    {
+                        "file_id": vat_cert.Id,
+                        "file_name": unique_filename,
+                        "original_filename": file.name,
+                        "file_type": file.content_type,
+                        "file_size": file.size,
+                    }
+                )
+
+            return Response(
+                {
+                    "message": f"{len(uploaded_files)} file(s) uploaded successfully.",
+                    "data": {
+                        "uploaded_files": uploaded_files,
+                        "files_count": len(uploaded_files),
+                    },
+                },
+                status=status.HTTP_201_CREATED,
+            )
+
         except User.DoesNotExist:
             return Response(
                 {"message": "User not found.", "data": []},
-                status=status.HTTP_404_NOT_FOUND
+                status=status.HTTP_404_NOT_FOUND,
             )
         except Exception as e:
             return Response(
-                {"message": str(e), "data": []},
-                status=status.HTTP_400_BAD_REQUEST
+                {"message": str(e), "data": []}, status=status.HTTP_400_BAD_REQUEST
             )
 
 
@@ -521,27 +571,26 @@ class Delete_UserFileView(APIView):
             if not file_id:
                 return Response(
                     {"message": "file_id parameter is required.", "data": []},
-                    status=status.HTTP_400_BAD_REQUEST
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
-                
+
             vat_certificate = VAT_Certificate_Manager.objects.get(
                 Id=file_id, User=request.user
             )
             vat_certificate.delete()
-            
+
             return Response(
                 {"message": "File deleted successfully.", "data": {"file_id": file_id}},
-                status=status.HTTP_200_OK
+                status=status.HTTP_200_OK,
             )
         except VAT_Certificate_Manager.DoesNotExist:
             return Response(
                 {"message": "File not found.", "data": []},
-                status=status.HTTP_404_NOT_FOUND
+                status=status.HTTP_404_NOT_FOUND,
             )
         except Exception as e:
             return Response(
-                {"message": str(e), "data": []},
-                status=status.HTTP_400_BAD_REQUEST
+                {"message": str(e), "data": []}, status=status.HTTP_400_BAD_REQUEST
             )
 
 
@@ -559,25 +608,24 @@ class Delete_UserView(APIView):
             if not User_Id:
                 return Response(
                     {"message": "User_Id is required.", "data": []},
-                    status=status.HTTP_400_BAD_REQUEST
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
-                
+
             user = User.objects.get(User_Id=User_Id)
             user.delete()
-            
+
             return Response(
                 {"message": "User deleted successfully.", "data": {"user_id": User_Id}},
-                status=status.HTTP_200_OK
+                status=status.HTTP_200_OK,
             )
         except User.DoesNotExist:
             return Response(
                 {"message": "User not found.", "data": []},
-                status=status.HTTP_404_NOT_FOUND
+                status=status.HTTP_404_NOT_FOUND,
             )
         except Exception as e:
             return Response(
-                {"message": str(e), "data": []},
-                status=status.HTTP_400_BAD_REQUEST
+                {"message": str(e), "data": []}, status=status.HTTP_400_BAD_REQUEST
             )
 
 
@@ -593,7 +641,7 @@ class Update_UserView(APIView):
                 user = User.objects.get(User_Id=User_Id)
             else:
                 user = request.user
-                
+
             # Update user fields
             user.username = request.data.get("username", user.username)
             user.name = request.data.get("name", user.name)
@@ -605,7 +653,7 @@ class Update_UserView(APIView):
 
             # Save the updated user
             user.save()
-            
+
             # Return updated user data
             user_data = {
                 "User_Id": user.User_Id,
@@ -615,20 +663,19 @@ class Update_UserView(APIView):
                 "phone_number": user.phone_number,
                 "email": user.email,
                 "website": user.website,
-                "CR_number": user.CR_number
+                "CR_number": user.CR_number,
             }
-            
+
             return Response(
                 {"message": "User updated successfully.", "data": user_data},
-                status=status.HTTP_200_OK
+                status=status.HTTP_200_OK,
             )
         except User.DoesNotExist:
             return Response(
                 {"message": "User not found.", "data": []},
-                status=status.HTTP_404_NOT_FOUND
+                status=status.HTTP_404_NOT_FOUND,
             )
         except Exception as e:
             return Response(
-                {"message": str(e), "data": []},
-                status=status.HTTP_400_BAD_REQUEST
+                {"message": str(e), "data": []}, status=status.HTTP_400_BAD_REQUEST
             )
