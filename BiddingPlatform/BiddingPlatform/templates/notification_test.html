@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Notification Test</title>
+    <style>
+      .notification {
+        padding: 10px;
+        margin: 5px;
+        background-color: #f0f0f0;
+        border-left: 4px solid #4caf50;
+        border-radius: 4px;
+      }
+      #notifications {
+        max-width: 500px;
+        margin: 20px auto;
+      }
+      .controls {
+        text-align: center;
+        margin: 20px;
+      }
+      .status {
+        text-align: center;
+        padding: 10px;
+        margin: 10px;
+        font-weight: bold;
+      }
+      .connected {
+        color: green;
+      }
+      .disconnected {
+        color: red;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="status" id="connection-status">
+      WebSocket Status: Disconnected
+    </div>
+    <div class="controls">
+      <button onclick="testNotification()">Send Test Notification</button>
+    </div>
+    <div id="notifications"></div>
+
+    <script>
+      let ws = null;
+      const notificationsDiv = document.getElementById("notifications");
+      const statusDiv = document.getElementById("connection-status");
+
+      function connect() {
+        // Use secure WebSocket (wss://) in production
+        ws = new WebSocket(`ws://${window.location.host}/ws/notifications/`);
+
+        ws.onopen = function () {
+          statusDiv.textContent = "WebSocket Status: Connected";
+          statusDiv.classList.add("connected");
+          statusDiv.classList.remove("disconnected");
+        };
+
+        ws.onclose = function () {
+          statusDiv.textContent = "WebSocket Status: Disconnected";
+          statusDiv.classList.add("disconnected");
+          statusDiv.classList.remove("connected");
+          // Try to reconnect in 5 seconds
+          setTimeout(connect, 5000);
+        };
+
+        ws.onmessage = function (e) {
+          const data = JSON.parse(e.data);
+          const notification = document.createElement("div");
+          notification.className = "notification";
+          notification.textContent = data.message;
+          notificationsDiv.insertBefore(
+            notification,
+            notificationsDiv.firstChild
+          );
+        };
+
+        ws.onerror = function (e) {
+          console.error("WebSocket error:", e);
+          statusDiv.textContent = "WebSocket Status: Error occurred";
+          statusDiv.classList.add("disconnected");
+          statusDiv.classList.remove("connected");
+        };
+      }
+
+      // Function to test sending a notification through the API
+      async function testNotification() {
+        try {
+          const response = await fetch("/api/test-notification/", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              message:
+                "Test notification at " + new Date().toLocaleTimeString(),
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error("Network response was not ok");
+          }
+
+          const result = await response.json();
+          console.log("Notification sent:", result);
+        } catch (error) {
+          console.error("Error sending notification:", error);
+        }
+      }
+
+      // Connect when the page loads
+      connect();
+    </script>
+  </body>
+</html>

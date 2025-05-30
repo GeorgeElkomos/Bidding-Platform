@@ -26,8 +26,15 @@ SECRET_KEY = "django-insecure-i6j*i=6ysh5#krohtaf4=0_19or9w4ww%cv42i6_2@*a23%n=p
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["*"]  # For development only, configure properly in production
 
+# CORS settings
+CORS_ALLOW_ALL_ORIGINS = True  # For development only
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOWED_ORIGINS = [
+    "http://127.0.0.1:8000",
+    "http://localhost:8000",
+]
 
 # Application definition
 
@@ -43,11 +50,16 @@ INSTALLED_APPS = [
     "rest_framework",
     "rest_framework_simplejwt",
     "corsheaders",
-    # Local apps
+    "channels",  # Local apps
     "User",
     "Tender",
     "Bit",
 ]
+
+ASGI_APPLICATION = "BiddingPlatform.asgi.application"
+
+# Channel layer settings
+CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
 
 AUTH_USER_MODEL = "User.User"  # Set the custom user model
 
@@ -66,7 +78,7 @@ ROOT_URLCONF = "BiddingPlatform.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / "BiddingPlatform" / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -88,7 +100,9 @@ REST_FRAMEWORK = {
 SIMPLE_JWT = {
     "USER_ID_FIELD": "User_Id",  # The field in your User model that serves as the user ID
     "USER_ID_CLAIM": "user_id",  # The claim name that will be used in the token
-    "ACCESS_TOKEN_LIFETIME": datetime.timedelta(hours=8),  # Set token to expire after 8 hours
+    "ACCESS_TOKEN_LIFETIME": datetime.timedelta(
+        hours=8
+    ),  # Set token to expire after 8 hours
 }
 
 WSGI_APPLICATION = "BiddingPlatform.wsgi.application"
