@@ -3,6 +3,7 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
+from User.models import Notification
 from Tender.models import Tender, Tender_Files
 from .permissions import IsSuperUser
 from django.http import FileResponse
@@ -161,7 +162,7 @@ class Create_TenderView(APIView):
             # Handle file uploads
             vat_files = request.FILES.getlist("files")
             uploaded_files = []
-            
+
             if vat_files:
                 for file in vat_files:
                     # Read the file data
@@ -175,7 +176,7 @@ class Create_TenderView(APIView):
                         file_size=file.size,
                         file_data=file_data,
                     )
-                    
+
                     uploaded_files.append({
                         "file_id": tender_file.file_id,
                         "file_name": file.name,
@@ -193,7 +194,10 @@ class Create_TenderView(APIView):
                 "uploaded_files": uploaded_files,
                 "files_count": len(uploaded_files)
             }
-
+            # notify the user about the new tender creation
+            Notification.send_notification(message=f"A new tender '{tender.title}' has been created.", target_type="NORMAL")
+            # Notify all superusers about the new tender
+            Notification.send_notification(message="A new tender has been created.", target_type="SUPER")
             return Response(
                 {
                     "message": "Tender created successfully.",
@@ -262,7 +266,8 @@ class Update_TenderView(APIView):
                     "budget": tender.budget,
                 }
             }
-
+            # Notify the user about the tender update
+            Notification.send_notification(message=f"The tender '{tender.title}' has been updated.", target_type="NORMAL")
             return Response(
                 {
                     "message": "Tender updated successfully.",
@@ -413,7 +418,8 @@ class Delete_TenderView(APIView):
 
             tender = Tender.objects.get(tender_id=tender_id)
             tender.delete()
-
+            # Notify the user about the tender deletion
+            Notification.send_notification(message=f"The tender '{tender.title}' has been deleted.", target_type="NORMAL")
             return Response(
                 {"message": "Tender deleted successfully.", "data": {"tender_id": tender_id}},
                 status=status.HTTP_200_OK,

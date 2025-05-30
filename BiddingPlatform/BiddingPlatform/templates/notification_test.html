@@ -32,25 +32,137 @@
       .disconnected {
         color: red;
       }
+      .login-form {
+        max-width: 300px;
+        margin: 20px auto;
+        padding: 20px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+      }
+      .login-form input {
+        width: 100%;
+        padding: 8px;
+        margin: 5px 0;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+      }
+      .login-form button {
+        width: 100%;
+        padding: 10px;
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .login-form button:hover {
+        background-color: #45a049;
+      }
+      .error {
+        color: red;
+        margin: 5px 0;
+      }
     </style>
   </head>
   <body>
-    <div class="status" id="connection-status">
-      WebSocket Status: Disconnected
+    <div id="login-section" class="login-form">
+      <h2>Login</h2>
+      <div id="login-error" class="error"></div>
+      <input type="text" id="username" placeholder="Username" />
+      <input type="password" id="password" placeholder="Password" />
+      <button onclick="login()">Login</button>
     </div>
-    <div class="controls">
-      <button onclick="testNotification()">Send Test Notification</button>
-    </div>
-    <div id="notifications"></div>
 
+    <div id="notification-section" style="display: none">
+      <div class="status" id="connection-status">
+        WebSocket Status: Disconnected
+      </div>
+      <div class="controls">
+        <button onclick="testNotification()">Send Test Notification</button>
+        <button onclick="logout()">Logout</button>
+      </div>
+      <div id="notifications"></div>
+    </div>
     <script>
       let ws = null;
       const notificationsDiv = document.getElementById("notifications");
       const statusDiv = document.getElementById("connection-status");
+      const loginSection = document.getElementById("login-section");
+      const notificationSection = document.getElementById(
+        "notification-section"
+      );
+      const loginError = document.getElementById("login-error");
+
+      async function login() {
+        const username = document.getElementById("username").value;
+        const password = document.getElementById("password").value;
+
+        try {
+          const response = await fetch("/api/User/login/", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              username: username,
+              password: password,
+            }),
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.message || "Login failed");
+          }
+
+          // Store the token
+          localStorage.setItem("token", data.data.Token);
+          localStorage.setItem("user_id", data.data.user_id);
+          localStorage.setItem("username", data.data.username);
+
+          // Hide login, show notifications
+          loginSection.style.display = "none";
+          notificationSection.style.display = "block";
+          loginError.textContent = "";
+
+          // Connect to WebSocket
+          connect();
+        } catch (error) {
+          loginError.textContent = error.message;
+          console.error("Login error:", error);
+        }
+      }
+
+      function logout() {
+        // Clear stored data
+        localStorage.removeItem("token");
+        localStorage.removeItem("user_id");
+        localStorage.removeItem("username");
+
+        // Disconnect WebSocket
+        if (ws) {
+          ws.close();
+          ws = null;
+        }
+
+        // Show login, hide notifications
+        loginSection.style.display = "block";
+        notificationSection.style.display = "none";
+        notificationsDiv.innerHTML = "";
+      }
 
       function connect() {
+        // Get the token from localStorage
+        const token = localStorage.getItem("token");
+        if (!token) {
+          console.error("No authentication token found");
+          return;
+        }
+
         // Use secure WebSocket (wss://) in production
-        ws = new WebSocket(`ws://${window.location.host}/ws/notifications/`);
+        ws = new WebSocket(
+          `ws://${window.location.host}/ws/notifications/?token=${token}`
+        );
 
         ws.onopen = function () {
           statusDiv.textContent = "WebSocket Status: Connected";
@@ -108,10 +220,12 @@
         } catch (error) {
           console.error("Error sending notification:", error);
         }
+      } // Check if we're already logged in when the page loads
+      if (localStorage.getItem("token")) {
+        loginSection.style.display = "none";
+        notificationSection.style.display = "block";
+        connect();
       }
-
-      // Connect when the page loads
-      connect();
     </script>
   </body>
 </html>

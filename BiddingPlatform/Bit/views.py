@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.http import FileResponse
 import io
-
+from User.models import Notification
 from Tender.permissions import IsCompany, IsSuperUser
 
 from .models import Bit, Bit_Files
@@ -62,20 +62,21 @@ class Get_All_Bits_For_TenderView(APIView):
             ]
 
             return Response(
-                {"message": "Bits retrieved successfully", "data": bits_data}, 
-                status=status.HTTP_200_OK
+                {"message": "Bits retrieved successfully", "data": bits_data},
+                status=status.HTTP_200_OK,
             )
 
         except Tender.DoesNotExist:
             return Response(
-                {"message": "Tender not found", "data": []}, 
-                status=status.HTTP_404_NOT_FOUND
+                {"message": "Tender not found", "data": []},
+                status=status.HTTP_404_NOT_FOUND,
             )
         except Exception as e:
             return Response(
-                {"message": str(e), "data": []}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"message": str(e), "data": []},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
 
 class Get_All_My_BitsView(APIView):
     """
@@ -125,14 +126,15 @@ class Get_All_My_BitsView(APIView):
 
             return Response(
                 {"message": "Bits retrieved successfully", "data": bits_data},
-                status=status.HTTP_200_OK
+                status=status.HTTP_200_OK,
             )
 
         except Exception as e:
             return Response(
                 {"message": str(e), "data": []},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
 
 class Get_Bit_DetailView(APIView):
     """
@@ -185,19 +187,20 @@ class Get_Bit_DetailView(APIView):
 
             return Response(
                 {"message": "Bit details retrieved successfully", "data": bit_data},
-                status=status.HTTP_200_OK
+                status=status.HTTP_200_OK,
             )
 
         except Bit.DoesNotExist:
             return Response(
-                {"message": "Bit not found", "data": []}, 
-                status=status.HTTP_404_NOT_FOUND
+                {"message": "Bit not found", "data": []},
+                status=status.HTTP_404_NOT_FOUND,
             )
         except Exception as e:
             return Response(
                 {"message": str(e), "data": []},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
 
 class Get_BitFile_Data(APIView):
     """
@@ -216,7 +219,7 @@ class Get_BitFile_Data(APIView):
                 )
 
             bit_file = Bit_Files.objects.get(file_id=file_id)
-            
+
             # For file downloads, we need to handle differently since we're returning binary data
             # We'll return metadata in a standard format when requested
             if request.query_params.get("metadata_only") == "true":
@@ -225,33 +228,37 @@ class Get_BitFile_Data(APIView):
                     "file_name": bit_file.file_name,
                     "file_type": bit_file.file_type,
                     "file_size": bit_file.file_size,
-                    "uploaded_at": bit_file.Uploaded_At
+                    "uploaded_at": bit_file.Uploaded_At,
                 }
                 return Response(
-                    {"message": "File metadata retrieved successfully", "data": file_metadata},
-                    status=status.HTTP_200_OK
+                    {
+                        "message": "File metadata retrieved successfully",
+                        "data": file_metadata,
+                    },
+                    status=status.HTTP_200_OK,
                 )
             else:
                 # For actual file download, create a file-like object and return it
                 file_stream = io.BytesIO(bit_file.file_data)
                 response = FileResponse(
-                    file_stream, 
+                    file_stream,
                     content_type=bit_file.file_type,
                     as_attachment=True,
-                    filename=bit_file.file_name
+                    filename=bit_file.file_name,
                 )
                 return response
-                
+
         except Bit_Files.DoesNotExist:
             return Response(
-                {"message": "File not found", "data": []}, 
-                status=status.HTTP_404_NOT_FOUND
+                {"message": "File not found", "data": []},
+                status=status.HTTP_404_NOT_FOUND,
             )
         except Exception as e:
             return Response(
                 {"message": str(e), "data": []},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
 
 class Create_BitView(APIView):
     """
@@ -296,41 +303,45 @@ class Create_BitView(APIView):
                         file_size=file.size,
                         file_data=file_data,
                     )
-            
+
             bit_data = {
                 "bit_id": bit.bit_id,
                 "title": bit.title,
                 "description": bit.description,
                 "cost": str(bit.cost),
-                "date": bit.date
+                "date": bit.date,
             }
-            
+            # Notify the tender creator about the new bit
+            Notification.send_notification(
+                message=f"New Bit Created for Tender {tender.title} by {user.username}", target_type="SUPER"
+            )
             return Response(
                 {"message": "Bit created successfully", "data": bit_data},
                 status=status.HTTP_201_CREATED,
             )
         except Tender.DoesNotExist:
             return Response(
-                {"message": "Tender not found", "data": []}, 
-                status=status.HTTP_404_NOT_FOUND
+                {"message": "Tender not found", "data": []},
+                status=status.HTTP_404_NOT_FOUND,
             )
         except Exception as e:
             return Response(
                 {"message": str(e), "data": []},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
 
 class Add_BitFileView(APIView):
     """View to add multiple files to an existing bit.
-    
+
     Example request:
     POST /api/bit/add_file/
     Content-Type: multipart/form-data
-    
+
     Form data:
     - bit_id: 123  (Required)
     - files: [file1.pdf, file2.xlsx, file3.pdf]  (Multiple file upload)
-    
+
     Response:
     {
         "message": "3 file(s) uploaded successfully.",
@@ -368,20 +379,20 @@ class Add_BitFileView(APIView):
                     {"error": "At least one file is required", "data": []},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            
+
             uploaded_files = []
-            
+
             for file in files:
                 # Read the file data as BLOB
                 file_data = file.read()
-                
+
                 # Create unique filenames with timestamp if needed
                 import datetime
                 import os
-                
+
                 # Split the filename into name and extension
                 file_name, file_extension = os.path.splitext(file.name)
-                
+
                 # Add current timestamp to ensure uniqueness
                 timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
                 unique_filename = f"{file_name}_{timestamp}{file_extension}"
@@ -394,22 +405,24 @@ class Add_BitFileView(APIView):
                     file_size=file.size,
                     file_data=file_data,
                 )
-                
-                uploaded_files.append({
-                    "file_id": bit_file.file_id,
-                    "file_name": unique_filename,
-                    "original_filename": file.name,
-                    "file_type": file.content_type,
-                    "file_size": file.size
-                })
+
+                uploaded_files.append(
+                    {
+                        "file_id": bit_file.file_id,
+                        "file_name": unique_filename,
+                        "original_filename": file.name,
+                        "file_type": file.content_type,
+                        "file_size": file.size,
+                    }
+                )
 
             return Response(
                 {
                     "message": f"{len(uploaded_files)} file(s) uploaded successfully.",
                     "data": {
                         "uploaded_files": uploaded_files,
-                        "files_count": len(uploaded_files)
-                    }
+                        "files_count": len(uploaded_files),
+                    },
                 },
                 status=status.HTTP_201_CREATED,
             )
@@ -423,6 +436,7 @@ class Add_BitFileView(APIView):
                 {"message": str(e), "data": []},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
 
 class Delete_BitFileView(APIView):
     """View to delete a specific tender file by ID."""
@@ -442,7 +456,10 @@ class Delete_BitFileView(APIView):
             Bit_file.delete()
 
             return Response(
-                {"message": "Bit file deleted successfully.", "data": {"file_id": file_id}},
+                {
+                    "message": "Bit file deleted successfully.",
+                    "data": {"file_id": file_id},
+                },
                 status=status.HTTP_200_OK,
             )
         except Bit_Files.DoesNotExist:
@@ -455,6 +472,7 @@ class Delete_BitFileView(APIView):
                 {"message": str(e), "data": []},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
 
 class Delete_BitView(APIView):
     """View to delete a specific bit by ID."""
@@ -488,6 +506,7 @@ class Delete_BitView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+
 class Update_BitView(APIView):
     """View to update an existing bit."""
 
@@ -517,9 +536,17 @@ class Update_BitView(APIView):
                 "title": bit.title,
                 "description": bit.description,
                 "date": bit.date,
-                "cost": str(bit.cost)
+                "cost": str(bit.cost),
             }
-            
+            # Notify the tender creator about the bit update
+            Notification.send_notification(
+                message=f"Bit {bit.title} updated by {request.user.username}", target_type="SUPER"
+            )
+            # notify the user who created the bit
+            Notification.send_notification(
+                message=f"Your Bit {bit.title} has been updated by {request.user.username}",
+                user=bit.created_by.User_Id,
+            )
             return Response(
                 {"message": "Bit updated successfully.", "data": bit_data},
                 status=status.HTTP_200_OK,
@@ -534,6 +561,7 @@ class Update_BitView(APIView):
                 {"message": str(e), "data": []},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
 
 class Bit_Request_RespondView(APIView):
     """View to respond to a bit (accept or reject)."""
@@ -568,9 +596,13 @@ class Bit_Request_RespondView(APIView):
             bit_data = {
                 "bit_id": bit.bit_id,
                 "Is_Accepted": bit.Is_Accepted,
-                "action": action
+                "action": action,
             }
-            
+            # notify the user who created the bit about the action taken
+            Notification.send_notification(
+                message=f"Your Bit {bit.title} has been {action.lower()}ed by {request.user.username}",
+                user=bit.created_by.User_Id,
+            )
             return Response(
                 {"message": f"Bit {action}ed successfully.", "data": bit_data},
                 status=status.HTTP_200_OK,

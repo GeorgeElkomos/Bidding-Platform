@@ -234,7 +234,7 @@ class Notification(models.Model):
     @classmethod
     def send_notification(cls, message, target_type="SPECIFIC", user=None):
         """
-        Send and save a notification to the database and broadcast it via WebSocket.
+        Send and save a notification to the database and broadcast it via WebSocket if recipients are connected.
 
         Args:
             message (str): The notification message
@@ -242,7 +242,7 @@ class Notification(models.Model):
             user (User, optional): The specific user to send the notification to. Required if target_type is SPECIFIC.
 
         Returns:
-            bool: True if the notification was successfully created and sent
+            bool: True if the notification was successfully created and saved
 
         Example:
             # Send to specific user
@@ -251,13 +251,20 @@ class Notification(models.Model):
             # Send to all users
             success = Notification.send_notification("Message", "ALL")
         """
-        from BiddingPlatform.consumers import notify_users, notify_users_by_id
+        from BiddingPlatform.consumers import (
+            notify_users,
+            notify_users_by_id,
+            active_connections,
+        )
 
-        if target_type == "SPECIFIC" and user is None:
-            raise ValueError("User must be provided for specific notifications")
+        print(
+            f"Sending notification: {message}, Target Type: {target_type}, User: {user}"
+        )
+        if target_type == "SPECIFIC":
+            if user is None:
+                raise ValueError("User must be provided for specific notifications")
 
-        try:
-            # Create and save the notification
+        try:  # Create and save the notification
             notification = cls(
                 Message=message,
                 Target_Type=target_type,
@@ -272,24 +279,34 @@ class Notification(models.Model):
                 NotificationReadStatus.objects.create(
                     User=user, Notification=notification
                 )
-                # Send WebSocket notification to specific user
-                notify_users_by_id(message, [user.User_Id])
+                # Send WebSocket notification to specific user if connected
+                if user.User_Id in active_connections:
+                    notify_users_by_id(message, [user.User_Id])
             else:
                 # Get target users based on notification type
                 if target_type == "ALL":
                     users = User.objects.all()
-                    # Broadcast to all users via WebSocket
-                    notify_users(message)
+                    # Broadcast to all users via WebSocket only if there are active connections
+                    if active_connections:
+                        notify_users(message)
                 elif target_type == "SUPER":
                     users = User.objects.filter(is_superuser=True)
-                    # Send to superusers via WebSocket
+                    # Send to connected superusers via WebSocket
                     super_user_ids = users.values_list("User_Id", flat=True)
-                    notify_users_by_id(message, list(super_user_ids))
+                    connected_super_users = [
+                        uid for uid in super_user_ids if uid in active_connections
+                    ]
+                    if connected_super_users:
+                        notify_users_by_id(message, connected_super_users)
                 else:  # NORMAL
                     users = User.objects.filter(is_superuser=False)
-                    # Send to normal users via WebSocket
+                    # Send to connected normal users via WebSocket
                     normal_user_ids = users.values_list("User_Id", flat=True)
-                    notify_users_by_id(message, list(normal_user_ids))
+                    connected_normal_users = [
+                        uid for uid in normal_user_ids if uid in active_connections
+                    ]
+                    if connected_normal_users:
+                        notify_users_by_id(message, connected_normal_users)
 
                 # Bulk create read status records for all target users
                 read_statuses = [

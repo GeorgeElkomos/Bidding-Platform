@@ -294,10 +294,13 @@ class User_RegesterView(APIView):
                             },
                             status=status.HTTP_400_BAD_REQUEST,
                         )
-            Notification.send_notification("New company registered", "SUPER")
             Notification.send_notification(
-                f"Welcome {user.username}, your account is under review.",
-                user.User_Id,
+                message="New company registered", target_type="SUPER"
+            )
+            Notification.send_notification(
+                message=f"Welcome {user.username}, your account is under review.",
+                target_type="SPECIFIC",
+                user=user,
             )
             return Response(
                 {
@@ -362,7 +365,9 @@ class Create_Super_User(APIView):
             user = User.objects.create_superuser(
                 username=username, email=email, password=password
             )
-            Notification.send_notification("New superuser created", "SUPER")
+            Notification.send_notification(
+                message="New superuser created", target_type="SUPER"
+            )
             return Response(
                 {"message": "Superuser created successfully.", "User_Id": user.User_Id},
                 status=status.HTTP_201_CREATED,
@@ -397,7 +402,9 @@ class Account_Request_Respond(APIView):
 
             user.save()
             Notification.send_notification(
-                f"Your account has been {response.lower()}ed", user.User_Id
+                message=f"Your account has been {response.lower()}ed",
+                target_type="SPECIFIC",
+                user=user,
             )
             return Response(
                 {"message": f"User {response.lower()}ed successfully."}, status=200
@@ -547,8 +554,9 @@ class Add_UserFileView(APIView):
                 )
             # Send notification for new file uploads
             Notification.send_notification(
-                f"{len(uploaded_files)} new file(s) uploaded by {user.username}",
-                user.User_Id,
+                message=f"{len(uploaded_files)} new file(s) uploaded by {user.username}",
+                target_type="SPECIFIC",
+                user=user,
             )
             return Response(
                 {
@@ -592,8 +600,9 @@ class Delete_UserFileView(APIView):
             vat_certificate.delete()
             # Send notification for file deletion
             Notification.send_notification(
-                f"File {vat_certificate.File_Name} deleted by {request.user.username}",
-                request.user.User_Id,
+                message=f"File {vat_certificate.File_Name} deleted by {request.user.username}",
+                target_type="SPECIFIC",
+                user=request.user,
             )
             return Response(
                 {"message": "File deleted successfully.", "data": {"file_id": file_id}},
@@ -631,8 +640,8 @@ class Delete_UserView(APIView):
             user.delete()
             # Send notification for user deletion
             Notification.send_notification(
-                f"User {user.username} deleted by {request.user.username}",
-                request.user.User_Id,
+                message=f"User {user.username} deleted by {request.user.username}",
+                target_type="SUPER",
             )
             return Response(
                 {"message": "User deleted successfully.", "data": {"user_id": User_Id}},
@@ -687,7 +696,9 @@ class Update_UserView(APIView):
             }
             # send notification for user update
             Notification.send_notification(
-                f"User {user.username} profile updated", user.User_Id
+                message=f"User {user.username} profile updated",
+                target_type="SPECIFIC",
+                user=user,
             )
             return Response(
                 {"message": "User updated successfully.", "data": user_data},

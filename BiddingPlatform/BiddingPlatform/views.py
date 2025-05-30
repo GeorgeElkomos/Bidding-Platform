@@ -13,6 +13,7 @@ class NotificationTestView(TemplateView):
 @method_decorator(csrf_exempt, name="dispatch")
 class TestNotificationAPI(View):
     def post(self, request):
+        print("TEST NOTIFICATION API CALLED")
         try:
             data = json.loads(request.body)
             message = data.get("message", "Test notification")
