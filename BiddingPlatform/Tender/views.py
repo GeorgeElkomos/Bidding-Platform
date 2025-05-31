@@ -3,6 +3,8 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.pagination import PageNumberPagination
+from django.db.models import Q
 from User.models import Notification
 from Tender.models import Tender, Tender_Files
 from .permissions import IsSuperUser
@@ -11,13 +13,38 @@ import io
 
 # Create your views here.
 
+class StandardPagination(PageNumberPagination):
+    page_size = 5
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
 class List_All_TendersView(APIView):
-    """View to list all tenders."""
+    """View to list all tenders with search and pagination."""
 
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        # Get search query parameter
+        search_query = request.query_params.get('search', '').strip()
+        
+        # Start with all tenders
         tenders = Tender.objects.all()
+        
+        # Apply search filter if search query is provided
+        if search_query:
+            tenders = tenders.filter(
+                Q(title__icontains=search_query) |
+                Q(description__icontains=search_query) |
+                Q(created_by__username__icontains=search_query)
+            )
+        
+        # Order by creation date (newest first)
+        tenders = tenders.order_by('-start_date')
+        
+        # Apply pagination
+        paginator = StandardPagination()
+        paginated_tenders = paginator.paginate_queryset(tenders, request)
+        
         tender_data = [
             {
                 "tender_id": tender.tender_id,
@@ -28,12 +55,15 @@ class List_All_TendersView(APIView):
                 "budget": tender.budget,
                 "created_by": tender.created_by.username if tender.created_by else None,
             }
-            for tender in tenders
+            for tender in paginated_tenders
         ]
-        return Response(
-            {"message": "Tenders retrieved successfully", "data": tender_data},
-            status=status.HTTP_200_OK
-        )
+        
+        return paginator.get_paginated_response({
+            "message": "Tenders retrieved successfully",
+            "search_query": search_query,
+            "total_count": tenders.count(),
+            "data": tender_data
+        })
 
 class Tender_DetailView(APIView):
     """View to get details of a specific tender by ID."""
