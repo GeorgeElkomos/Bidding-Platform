@@ -13,6 +13,7 @@ from User.views import (
     Delete_UserFileView,
     Delete_UserView,
     Update_UserView,
+    ListSuperUsersView,
 )
 
 urlpatterns = [
@@ -20,6 +21,7 @@ urlpatterns = [
     path("login/", LoginView.as_view(), name="login"),
     path("details/", UserDetailView.as_view(), name="user_detail"),
     path("getall/", List_UserView.as_view(), name="list_users"),
+    path("getsuperadmins/", ListSuperUsersView.as_view(), name="list_superadmins"),
     path("deleteall/", Delete_All_UsersView.as_view(), name="delete_all_users"),
     path("createsuperuser/", Create_Super_User.as_view(), name="create_super_user"),
     path(

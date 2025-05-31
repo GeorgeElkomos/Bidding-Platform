@@ -2,7 +2,7 @@
   "api_documentation": {
     "base_url": "http://127.0.0.1:8000",
     "description": "Bidding Platform User API Documentation",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "endpoints": [
       {
         "name": "User Login",
@@ -80,31 +80,144 @@
         "name": "List All Users",
         "method": "GET",
         "endpoint": "/api/User/getall/",
-        "description": "Retrieves a list of all users (excluding superusers)",
-        "authentication": "None required",
+        "description": "Retrieves a list of all users (excluding superusers) with pagination and search",
+        "authentication": "JWT Token required + SuperUser permissions",
         "request": {
-          "parameters": "None",
-          "body": "None"
+          "parameters": {
+            "page": {
+              "type": "integer",
+              "required": false,
+              "location": "query",
+              "description": "Page number for pagination",
+              "default": 1
+            },
+            "page_size": {
+              "type": "integer",
+              "required": false,
+              "location": "query",
+              "description": "Number of items per page",
+              "default": 10,
+              "max": 100
+            },
+            "search": {
+              "type": "string",
+              "required": false,
+              "location": "query",
+              "description": "Search term to filter users by username, name or email"
+            }
+          },
+          "example_url": "/api/User/getall/?page=1&page_size=10&search=company"
         },
         "responses": {
           "200": {
             "description": "Users retrieved successfully",
             "body": {
-              "message": "Users retrieved successfully",
-              "data": [
-                {
-                  "user_Id": 1,
-                  "username": "company1",
-                  "name": "Company One Ltd",
-                  "email": "contact@company1.com"
-                },
-                {
-                  "user_Id": 2,
-                  "username": "company2",
-                  "name": "Company Two Ltd",
-                  "email": "contact@company2.com"
-                }
-              ]
+              "count": 25,
+              "next": "http://127.0.0.1:8000/api/User/getall/?page=2",
+              "previous": null,
+              "results": {
+                "message": "Users retrieved successfully",
+                "data": [
+                  {
+                    "user_Id": 1,
+                    "username": "company1",
+                    "name": "Company One Ltd",
+                    "email": "contact@company1.com",
+                    "Is_Accepted": true
+                  },
+                  {
+                    "user_Id": 2,
+                    "username": "company2",
+                    "name": "Company Two Ltd",
+                    "email": "contact@company2.com",
+                    "Is_Accepted": false
+                  }
+                ]
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - invalid or missing token",
+            "body": {
+              "detail": "Authentication credentials were not provided."
+            }
+          },
+          "403": {
+            "description": "Forbidden - not a superuser",
+            "body": {
+              "detail": "You do not have permission to perform this action."
+            }
+          }
+        }
+      },
+      {
+        "name": "List All Superadmins",
+        "method": "GET",
+        "endpoint": "/api/User/getsuperadmins/",
+        "description": "Retrieves a list of all superadmin users with pagination and search",
+        "authentication": "JWT Token required + SuperUser permissions",
+        "request": {
+          "parameters": {
+            "page": {
+              "type": "integer",
+              "required": false,
+              "location": "query",
+              "description": "Page number for pagination",
+              "default": 1
+            },
+            "page_size": {
+              "type": "integer",
+              "required": false,
+              "location": "query",
+              "description": "Number of items per page",
+              "default": 10,
+              "max": 100
+            },
+            "search": {
+              "type": "string",
+              "required": false,
+              "location": "query",
+              "description": "Search term to filter superadmins by username, name or email"
+            }
+          },
+          "example_url": "/api/User/getsuperadmins/?page=1&page_size=10&search=admin"
+        },
+        "responses": {
+          "200": {
+            "description": "Superadmins retrieved successfully",
+            "body": {
+              "count": 5,
+              "next": null,
+              "previous": null,
+              "results": {
+                "message": "Superusers retrieved successfully",
+                "data": [
+                  {
+                    "user_Id": 3,
+                    "username": "admin1",
+                    "name": "System Admin",
+                    "email": "admin@biddingplatform.com"
+                  },
+                  {
+                    "user_Id": 4,
+                    "username": "admin2",
+                    "name": "Technical Admin",
+                    "email": "tech@biddingplatform.com"
+                  }
+                ]
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - invalid or missing token",
+            "body": {
+              "detail": "Authentication credentials were not provided."
+            }
+          },
+          "403": {
+            "description": "Forbidden - not a superuser",
+            "body": {
+              "detail": "You do not have permission to perform this action."
             }
           }
         }
@@ -114,7 +227,7 @@
         "method": "GET",
         "endpoint": "/api/User/details/",
         "description": "Retrieves detailed information about a specific user including VAT certificates",
-        "authentication": "None required",
+        "authentication": "JWT Token required",
         "request": {
           "parameters": {
             "User_Id": {
@@ -181,7 +294,7 @@
         "method": "POST",
         "endpoint": "/api/User/createsuperuser/",
         "description": "Creates a new superuser account with admin privileges",
-        "authentication": "None required",
+        "authentication": "JWT Token required + SuperUser permissions",
         "request": {
           "content_type": "application/json",
           "body": {
@@ -227,29 +340,56 @@
         "name": "All Pending Requests",
         "method": "GET",
         "endpoint": "/api/User/get_all_pending_users/",
-        "description": "Retrieves all users with pending approval status (Is_Accepted = null)",
-        "authentication": "None required",
+        "description": "Retrieves all companys request with pending approval status (Is_Accepted = null) with pagination and search",
+        "authentication": "JWT Token required + SuperUser permissions",
         "request": {
-          "parameters": "None",
-          "body": "None"
+          "parameters": {
+            "page": {
+              "type": "integer",
+              "required": false,
+              "location": "query",
+              "description": "Page number for pagination",
+              "default": 1
+            },
+            "page_size": {
+              "type": "integer",
+              "required": false,
+              "location": "query",
+              "description": "Number of items per page",
+              "default": 10,
+              "max": 100
+            },
+            "search": {
+              "type": "string",
+              "required": false,
+              "location": "query",
+              "description": "Search term to filter pending users by username, name or email"
+            }
+          },
+          "example_url": "/api/User/get_all_pending_users/?page=1&page_size=10&search=company"
         },
         "responses": {
           "200": {
             "description": "Pending users retrieved successfully",
-            "body": [
-              {
-                "User_Id": 4,
-                "username": "pending_user1",
-                "name": "Pending Company Ltd",
-                "email": "contact@pending.com"
-              },
-              {
-                "User_Id": 5,
-                "username": "pending_user2",
-                "name": "Another Pending Company",
-                "email": "info@anotherpending.com"
-              }
-            ]
+            "body": {
+              "count": 8,
+              "next": null,
+              "previous": null,
+              "results": [
+                {
+                  "User_Id": 4,
+                  "username": "pending_user1",
+                  "name": "Pending Company Ltd",
+                  "email": "contact@pending.com"
+                },
+                {
+                  "User_Id": 5,
+                  "username": "pending_user2",
+                  "name": "Another Pending Company",
+                  "email": "info@anotherpending.com"
+                }
+              ]
+            }
           },
           "400": {
             "description": "Error occurred",
@@ -264,7 +404,7 @@
         "method": "POST",
         "endpoint": "/api/User/account_request_respond/",
         "description": "Accepts or rejects a user account registration request",
-        "authentication": "None required",
+        "authentication": "JWT Token required + SuperUser permissions",
         "request": {
           "content_type": "application/json",
           "body": {
@@ -311,7 +451,7 @@
         "method": "GET",
         "endpoint": "/api/User/get_user_file_data/",
         "description": "Retrieves file data or metadata for a specific VAT certificate file",
-        "authentication": "None required",
+        "authentication": "JWT Token required",
         "request": {
           "parameters": {
             "file_id": {
@@ -568,7 +708,9 @@
       "user_roles": "Users can be regular users or superusers with different permission levels",
       "account_approval": "New user registrations require admin approval (Is_Accepted status)",
       "file_storage": "Files are stored as BLOB data in the database",
-      "timestamps": "All timestamps are in ISO 8601 format (YYYY-MM-DDTHH:MM:SSZ)"
+      "timestamps": "All timestamps are in ISO 8601 format (YYYY-MM-DDTHH:MM:SSZ)",
+      "pagination": "Most list endpoints support pagination with page and page_size parameters",
+      "searching": "Most list endpoints support searching with the search parameter"
     }
   }
 }

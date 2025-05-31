@@ -9,8 +9,16 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth import authenticate
 import io
+from django.db.models import Q
+from rest_framework.pagination import PageNumberPagination
 
 # Create your views here.
+
+# Define a standard pagination class
+class StandardPagination(PageNumberPagination):
+    page_size = 5
+    page_size_query_param = 'page_size'
+    max_page_size = 100
 
 
 class LoginView(APIView):
@@ -61,7 +69,7 @@ class LoginView(APIView):
 
 
 class List_UserView(APIView):
-    """View to list all companies."""
+    """View to list all companies with pagination and search."""
 
     permission_classes = [
         IsAuthenticated,
@@ -69,22 +77,82 @@ class List_UserView(APIView):
     ]  # Ensure the user is authenticated
 
     def get(self, request):
-        users = User.objects.filter(
-            is_superuser=False
-        )  # Assuming companies are not superusers
+        # Get search parameters
+        search_query = request.query_params.get('search', '')
+        
+        # Apply search filter if provided
+        users = User.objects.filter(is_superuser=False)
+        if search_query:
+            users = users.filter(
+                Q(username__icontains=search_query) | 
+                Q(name__icontains=search_query) | 
+                Q(email__icontains=search_query)
+            )
+            
+        # Apply pagination
+        paginator = StandardPagination()
+        paginated_users = paginator.paginate_queryset(users, request)
+        
+        # Prepare data
         user_data = [
             {
                 "user_Id": user.User_Id,
                 "username": user.username,
                 "name": user.name,
                 "email": user.email,
+                "Is_Accepted": user.Is_Accepted
             }
-            for user in users
+            for user in paginated_users
         ]
-        return Response(
-            {"message": "Users retrieved successfully", "data": user_data},
-            status=status.HTTP_200_OK,
-        )
+        
+        # Return paginated response
+        return paginator.get_paginated_response({
+            "message": "Users retrieved successfully", 
+            "data": user_data
+        })
+
+
+class ListSuperUsersView(APIView):
+    """View to list all superadmin users with pagination and search."""
+
+    permission_classes = [
+        IsAuthenticated,
+        IsSuperUser,
+    ]  # Ensure the user is authenticated and is a superuser
+
+    def get(self, request):
+        # Get search parameters
+        search_query = request.query_params.get('search', '')
+        
+        # Apply search filter if provided
+        superusers = User.objects.filter(is_superuser=True)
+        if search_query:
+            superusers = superusers.filter(
+                Q(username__icontains=search_query) | 
+                Q(name__icontains=search_query) | 
+                Q(email__icontains=search_query)
+            )
+            
+        # Apply pagination
+        paginator = StandardPagination()
+        paginated_superusers = paginator.paginate_queryset(superusers, request)
+        
+        # Prepare data
+        superuser_data = [
+            {
+                "user_Id": user.User_Id,
+                "username": user.username,
+                "name": user.name,
+                "email": user.email
+            }
+            for user in paginated_superusers
+        ]
+        
+        # Return paginated response
+        return paginator.get_paginated_response({
+            "message": "Superusers retrieved successfully", 
+            "data": superuser_data
+        })
 
 
 class UserDetailView(APIView):
@@ -416,7 +484,7 @@ class Account_Request_Respond(APIView):
 
 
 class Get_All_Pending_Users(APIView):
-    """View to get all pending users."""
+    """View to get all pending users with pagination and search."""
 
     permission_classes = [
         IsAuthenticated,
@@ -425,7 +493,23 @@ class Get_All_Pending_Users(APIView):
 
     def get(self, request):
         try:
+            # Get search parameters
+            search_query = request.query_params.get('search', '')
+            
+            # Apply search filter if provided
             pending_users = User.objects.filter(Is_Accepted=None)
+            if search_query:
+                pending_users = pending_users.filter(
+                    Q(username__icontains=search_query) | 
+                    Q(name__icontains=search_query) | 
+                    Q(email__icontains=search_query)
+                )
+                
+            # Apply pagination
+            paginator = StandardPagination()
+            paginated_users = paginator.paginate_queryset(pending_users, request)
+            
+            # Prepare data
             pending_user_data = [
                 {
                     "User_Id": user.User_Id,
@@ -433,9 +517,12 @@ class Get_All_Pending_Users(APIView):
                     "name": user.name,
                     "email": user.email,
                 }
-                for user in pending_users
+                for user in paginated_users
             ]
-            return Response(pending_user_data, status=200)
+            
+            # Return paginated response
+            return paginator.get_paginated_response(pending_user_data)
+            
         except Exception as e:
             return Response({"error": str(e)}, status=400)
 
@@ -665,7 +752,8 @@ class Update_UserView(APIView):
 
     def put(self, request):
         try:
-            if IsSuperUser:
+            # Fix the superuser check
+            if request.user.is_superuser:
                 User_Id = request.data.get("User_Id", request.user.User_Id)
                 user = User.objects.get(User_Id=User_Id)
             else:
@@ -679,6 +767,10 @@ class Update_UserView(APIView):
             user.email = request.data.get("email", user.email)
             user.website = request.data.get("website", user.website)
             user.CR_number = request.data.get("CR_number", user.CR_number)
+            
+            # Allow superusers to update the Is_Accepted status
+            if request.user.is_superuser and "Is_Accepted" in request.data:
+                user.Is_Accepted = request.data.get("Is_Accepted")
 
             # Save the updated user
             user.save()
@@ -693,6 +785,7 @@ class Update_UserView(APIView):
                 "email": user.email,
                 "website": user.website,
                 "CR_number": user.CR_number,
+                "Is_Accepted": user.Is_Accepted  # Include Is_Accepted in response
             }
             # send notification for user update
             Notification.send_notification(
