@@ -3,6 +3,8 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.pagination import PageNumberPagination
+from django.db.models import Q
 from django.http import FileResponse
 import io
 from User.models import Notification
@@ -13,6 +15,12 @@ from Tender.models import Tender
 
 
 # Create your views here.
+
+class StandardPagination(PageNumberPagination):
+    page_size = 5
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
 class Get_All_Bits_For_TenderView(APIView):
     """
     View to get all bits for a specific tender.
@@ -28,8 +36,47 @@ class Get_All_Bits_For_TenderView(APIView):
                     {"message": "tender_id is required", "data": []},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+                
+            # Get search query parameter
+            search_query = request.query_params.get('search', '').strip()
+            
+            # Get filter parameters
+            min_cost = request.query_params.get('min_cost')
+            max_cost = request.query_params.get('max_cost')
+            start_date = request.query_params.get('start_date')
+            end_date = request.query_params.get('end_date')
+            is_accepted = request.query_params.get('is_accepted')
+            
             tender = Tender.objects.get(tender_id=tender_id)
             bits = Bit.objects.filter(tender=tender)
+            
+            # Apply search filter if search query is provided
+            if search_query:
+                bits = bits.filter(
+                    Q(title__icontains=search_query) |
+                    Q(description__icontains=search_query) |
+                    Q(created_by__username__icontains=search_query)
+                )
+                
+            # Apply additional filters
+            if min_cost:
+                bits = bits.filter(cost__gte=min_cost)
+            if max_cost:
+                bits = bits.filter(cost__lte=max_cost)
+            if start_date:
+                bits = bits.filter(date__gte=start_date)
+            if end_date:
+                bits = bits.filter(date__lte=end_date)
+            if is_accepted is not None:
+                is_accepted_bool = is_accepted.lower() == 'true'
+                bits = bits.filter(Is_Accepted=is_accepted_bool)
+                
+            # Order by date (newest first)
+            bits = bits.order_by('-date')
+            
+            # Apply pagination
+            paginator = StandardPagination()
+            paginated_bits = paginator.paginate_queryset(bits, request)
 
             # Serialize the bits data
             bits_data = [
@@ -47,24 +94,24 @@ class Get_All_Bits_For_TenderView(APIView):
                         else None
                     ),
                     "cost": str(bit.cost),  # Convert Decimal to string
-                    # "files": [
-                    #     {
-                    #         "file_id": file.file_id,
-                    #         "file_name": file.file_name,
-                    #         "file_type": file.file_type,
-                    #         "file_size": file.file_size,
-                    #         "uploaded_at": file.Uploaded_At,
-                    #     }
-                    #     for file in bit.files.all()
-                    # ],
+                    "is_accepted": bit.Is_Accepted,
                 }
-                for bit in bits
+                for bit in paginated_bits
             ]
 
-            return Response(
-                {"message": "Bits retrieved successfully", "data": bits_data},
-                status=status.HTTP_200_OK,
-            )
+            return paginator.get_paginated_response({
+                "message": "Bits retrieved successfully",
+                "search_query": search_query,
+                "filters": {
+                    "min_cost": min_cost,
+                    "max_cost": max_cost,
+                    "start_date": start_date,
+                    "end_date": end_date,
+                    "is_accepted": is_accepted
+                },
+                "total_count": bits.count(),
+                "data": bits_data
+            })
 
         except Tender.DoesNotExist:
             return Response(
@@ -88,8 +135,50 @@ class Get_All_My_BitsView(APIView):
     def get(self, request):
         try:
             user = request.user
+            
+            # Get search query parameter
+            search_query = request.query_params.get('search', '').strip()
+            
+            # Get filter parameters
+            min_cost = request.query_params.get('min_cost')
+            max_cost = request.query_params.get('max_cost')
+            start_date = request.query_params.get('start_date')
+            end_date = request.query_params.get('end_date')
+            is_accepted = request.query_params.get('is_accepted')
+            tender_id = request.query_params.get('tender_id')
+            
             bits = Bit.objects.filter(created_by=user)
-            print("User Email", user.email)
+            
+            # Apply search filter if search query is provided
+            if search_query:
+                bits = bits.filter(
+                    Q(title__icontains=search_query) |
+                    Q(description__icontains=search_query) |
+                    Q(tender__title__icontains=search_query)
+                )
+                
+            # Apply additional filters
+            if min_cost:
+                bits = bits.filter(cost__gte=min_cost)
+            if max_cost:
+                bits = bits.filter(cost__lte=max_cost)
+            if start_date:
+                bits = bits.filter(date__gte=start_date)
+            if end_date:
+                bits = bits.filter(date__lte=end_date)
+            if is_accepted is not None:
+                is_accepted_bool = is_accepted.lower() == 'true'
+                bits = bits.filter(Is_Accepted=is_accepted_bool)
+            if tender_id:
+                bits = bits.filter(tender__tender_id=tender_id)
+                
+            # Order by date (newest first)
+            bits = bits.order_by('-date')
+            
+            # Apply pagination
+            paginator = StandardPagination()
+            paginated_bits = paginator.paginate_queryset(bits, request)
+            
             # Serialize the bits data
             bits_data = [
                 {
@@ -97,37 +186,30 @@ class Get_All_My_BitsView(APIView):
                     "title": bit.title,
                     # "description": bit.description,
                     "date": bit.date,
-                    # "created_by": (
-                    #     {
-                    #         "user_id": bit.created_by.User_Id,
-                    #         "username": bit.created_by.username,
-                    #     }
-                    #     if bit.created_by
-                    #     else None
-                    # ),
                     "cost": str(bit.cost),  # Convert Decimal to string
+                    "is_accepted": bit.Is_Accepted,
                     "tender": {
                         "tender_id": bit.tender.tender_id,
                         "title": bit.tender.title,
                     },
-                    # "files": [
-                    #     {
-                    #         "file_id": file.file_id,
-                    #         "file_name": file.file_name,
-                    #         "file_type": file.file_type,
-                    #         "file_size": file.file_size,
-                    #         "uploaded_at": file.Uploaded_At,
-                    #     }
-                    #     for file in bit.files.all()
-                    # ],
                 }
-                for bit in bits
+                for bit in paginated_bits
             ]
 
-            return Response(
-                {"message": "Bits retrieved successfully", "data": bits_data},
-                status=status.HTTP_200_OK,
-            )
+            return paginator.get_paginated_response({
+                "message": "Bits retrieved successfully",
+                "search_query": search_query,
+                "filters": {
+                    "min_cost": min_cost,
+                    "max_cost": max_cost,
+                    "start_date": start_date,
+                    "end_date": end_date,
+                    "is_accepted": is_accepted,
+                    "tender_id": tender_id
+                },
+                "total_count": bits.count(),
+                "data": bits_data
+            })
 
         except Exception as e:
             return Response(

@@ -224,33 +224,52 @@ class User_RegesterView(APIView):
 
     def post(self, request):
         """
-        This endpoint expects multipart/form-data with:
+        This endpoint accepts two formats:
+        
+        1. JSON format with multipart/form-data:
         - company_data: JSON string containing user information
         - vat_files: Multiple files as BLOB data
-
-        Example form-data:
-        company_data: {
-            "username": "company123",
-            "password": "123",
-            "name": "Company Name Ltd",
-            "address": "123 Business St",
-            "phone_number": "+1234567890",
-            "email": "contact@company.com",
-            "website": "www.company.com",
-            "CR_number": "CR123456"
-        }
-        vat_files: [file1.pdf, file2.xlsx, file3.pdf] (as BLOB data)
+        
+        2. Direct form fields:
+        - username, password, name, etc. as individual form fields
+        - files: Multiple files as BLOB data
+        
+        Example form-data (direct fields):
+        username: "company123"
+        password: "123"
+        name: "Company Name Ltd"
+        address: "123 Business St"
+        phone_number: "+1234567890"
+        email: "contact@company.com"
+        website: "www.company.com"
+        CR_number: "CR123456"
+        files: [file1.pdf, file2.pdf] (as BLOB data)
         """
         try:
-            # Parse the company_data JSON string
+            # Check if we have company_data as JSON or individual fields
             company_data = request.data.get("company_data")
-            if isinstance(company_data, str):
+            
+            # If company_data is not provided, construct it from individual fields
+            if not company_data:
+                company_data = {
+                    "username": request.data.get("username"),
+                    "password": request.data.get("password"),
+                    "name": request.data.get("name"),
+                    "email": request.data.get("email"),
+                    "address": request.data.get("address"),
+                    "phone_number": request.data.get("phone_number"),
+                    "website": request.data.get("website"),
+                    "CR_number": request.data.get("CR_number")
+                }
+            elif isinstance(company_data, str):
+                # Parse the company_data JSON string if provided
                 import json
-
                 company_data = json.loads(company_data)
-            elif company_data is None:
+            
+            # If still no company_data, return error
+            if not company_data:
                 return Response(
-                    {"error": "company_data is required."},
+                    {"error": "User data is required."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -280,9 +299,7 @@ class User_RegesterView(APIView):
             # Create the user with create_user to properly hash the password
             user = User.objects.create_user(
                 username=company_data.get("username"),
-                password=company_data.get(
-                    "password"
-                ),  # This will be hashed automatically
+                password=company_data.get("password"),  # This will be hashed automatically
                 email=company_data.get("email"),
                 name=company_data.get("name"),
             )
@@ -295,8 +312,8 @@ class User_RegesterView(APIView):
             user.Is_Accepted = None  # Default to not accepted
             user.save()
 
-            # Handle file uploads as BLOB data
-            vat_files = request.FILES.getlist("vat_files")
+            # Handle file uploads as BLOB data - try both vat_files and files
+            vat_files = request.FILES.getlist("vat_files") or request.FILES.getlist("files")
             uploaded_files = []
 
             if vat_files:

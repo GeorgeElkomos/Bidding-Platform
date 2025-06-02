@@ -89,14 +89,13 @@ class Tender_DetailView(APIView):
                 "start_date": tender.start_date,
                 "end_date": tender.end_date,
                 "budget": tender.budget,
-                "created_by": tender.created_by.username if tender.created_by else None,
-                "files": (
+                "created_by": tender.created_by.username if tender.created_by else None,                "files": (
                     [
                         {
                             "file_id": cert.file_id,
-                            "file_name": cert.File_Name,
-                            "file_type": cert.File_Type,
-                            "file_size": cert.File_Size,
+                            "file_name": cert.file_name,
+                            "file_type": cert.file_type,
+                            "file_size": cert.file_size,
                             "uploaded_at": cert.Uploaded_At,
                         }
                         for cert in TenderFiles
@@ -135,15 +134,14 @@ class Get_TenderFile_Data(APIView):
                 )
                 
             tender_file = Tender_Files.objects.get(file_id=file_id)
-            
-            # For file downloads, we need to handle differently since we're returning binary data
+              # For file downloads, we need to handle differently since we're returning binary data
             # We'll return metadata in a standard format when requested
             if request.query_params.get("metadata_only") == "true":
                 file_metadata = {
                     "file_id": tender_file.file_id,
-                    "file_name": tender_file.File_Name,
-                    "file_type": tender_file.File_Type,
-                    "file_size": tender_file.File_Size,
+                    "file_name": tender_file.file_name,
+                    "file_type": tender_file.file_type,
+                    "file_size": tender_file.file_size,
                     "uploaded_at": tender_file.Uploaded_At
                 }
                 return Response(
@@ -152,12 +150,12 @@ class Get_TenderFile_Data(APIView):
                 )
             else:
                 # For actual file download, create a file-like object and return it
-                file_stream = io.BytesIO(tender_file.File_Data)
+                file_stream = io.BytesIO(tender_file.file_data)
                 response = FileResponse(
                     file_stream, 
-                    content_type=tender_file.File_Type,
+                    content_type=tender_file.file_type,
                     as_attachment=True,
-                    filename=tender_file.File_Name
+                    filename=tender_file.file_name
                 )
                 return response
                 

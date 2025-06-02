@@ -1,0 +1,680 @@
+{
+  "api_documentation": {
+    "base_url": "http://127.0.0.1:8000",
+    "description": "Bidding Platform Tender API Documentation",
+    "version": "1.0.1",
+    "endpoints": [
+      {
+        "name": "List All Tenders",
+        "method": "GET",
+        "endpoint": "/api/Tender/getall/",
+        "description": "Retrieves a list of all tenders with search functionality and pagination",
+        "authentication": "JWT Token required",
+        "request": {
+          "parameters": {
+            "page": {
+              "type": "integer",
+              "required": false,
+              "location": "query",
+              "description": "Page number for pagination",
+              "default": 1
+            },
+            "page_size": {
+              "type": "integer",
+              "required": false,
+              "location": "query",
+              "description": "Number of items per page",
+              "default": 5,
+              "max": 100
+            },
+            "search": {
+              "type": "string",
+              "required": false,
+              "location": "query",
+              "description": "Search term to filter tenders by title, description, or creator username"
+            }
+          },
+          "example_url": "/api/Tender/getall/?page=1&page_size=10&search=construction"
+        },
+        "responses": {
+          "200": {
+            "description": "Tenders retrieved successfully",
+            "body": {
+              "count": 15,
+              "next": "http://127.0.0.1:8000/api/Tender/getall/?page=2",
+              "previous": null,
+              "results": {
+                "message": "Tenders retrieved successfully",
+                "search_query": "construction",
+                "total_count": 15,
+                "data": [
+                  {
+                    "tender_id": 1,
+                    "title": "Construction Project Alpha",
+                    "description": "Major construction project for office building",
+                    "start_date": "2025-06-01T09:00:00Z",
+                    "end_date": "2025-12-31T17:00:00Z",
+                    "budget": "1500000.00",
+                    "created_by": "admin1"
+                  },
+                  {
+                    "tender_id": 2,
+                    "title": "IT Infrastructure Upgrade",
+                    "description": "Complete IT system upgrade for corporate office",
+                    "start_date": "2025-07-01T09:00:00Z",
+                    "end_date": "2025-09-30T17:00:00Z",
+                    "budget": "750000.00",
+                    "created_by": "admin2"
+                  }
+                ]
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - invalid or missing token",
+            "body": {
+              "detail": "Authentication credentials were not provided."
+            }
+          }
+        }
+      },
+      {
+        "name": "Tender Details",
+        "method": "GET",
+        "endpoint": "/api/Tender/details/",
+        "description": "Retrieves detailed information about a specific tender including all associated files",
+        "authentication": "JWT Token required",
+        "request": {
+          "parameters": {
+            "tender_id": {
+              "type": "integer",
+              "required": true,
+              "location": "query",
+              "description": "The ID of the tender to retrieve details for"
+            }
+          },
+          "example_url": "/api/Tender/details/?tender_id=1"
+        },
+        "responses": {
+          "200": {
+            "description": "Tender details retrieved successfully",
+            "body": {
+              "message": "Tender details retrieved successfully",
+              "data": {
+                "tender_id": 1,
+                "title": "Construction Project Alpha",
+                "description": "Major construction project for office building",
+                "start_date": "2025-06-01T09:00:00Z",
+                "end_date": "2025-12-31T17:00:00Z",
+                "budget": "1500000.00",
+                "created_by": "admin1",
+                "files": [
+                  {
+                    "file_id": 1,
+                    "file_name": "project_blueprint.pdf",
+                    "file_type": "application/pdf",
+                    "file_size": 2048576,
+                    "uploaded_at": "2025-05-29T10:30:00Z"
+                  },
+                  {
+                    "file_id": 2,
+                    "file_name": "requirements_doc.docx",
+                    "file_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    "file_size": 512000,
+                    "uploaded_at": "2025-05-29T11:15:00Z"
+                  }
+                ]
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - tender_id missing",
+            "body": {
+              "message": "tender_id is required",
+              "data": []
+            }
+          },
+          "404": {
+            "description": "Tender not found",
+            "body": {
+              "message": "Tender not found.",
+              "data": []
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "body": {
+              "message": "Error message details",
+              "data": []
+            }
+          }
+        }
+      },
+      {
+        "name": "Create Tender",
+        "method": "POST",
+        "endpoint": "/api/Tender/create/",
+        "description": "Creates a new tender with optional file attachments",
+        "authentication": "JWT Token required + SuperUser permissions",
+        "request": {
+          "content_type": "multipart/form-data",
+          "body": {
+            "title": {
+              "type": "string",
+              "required": true,
+              "description": "Tender title"
+            },
+            "description": {
+              "type": "string",
+              "required": true,
+              "description": "Detailed description of the tender"
+            },
+            "start_date": {
+              "type": "string",
+              "required": true,
+              "description": "Tender start date in ISO format (YYYY-MM-DDTHH:MM:SSZ)"
+            },
+            "end_date": {
+              "type": "string",
+              "required": false,
+              "description": "Tender end date in ISO format (YYYY-MM-DDTHH:MM:SSZ)"
+            },
+            "budget": {
+              "type": "number",
+              "required": true,
+              "description": "Tender budget amount (decimal with up to 15 digits, 2 decimal places)"
+            },
+            "files": {
+              "type": "file[]",
+              "required": false,
+              "description": "Multiple files to attach to the tender (PDF, Excel, images up to 10MB each)"
+            }
+          },
+          "example": {
+            "title": "New Construction Project",
+            "description": "Building a new office complex",
+            "start_date": "2025-06-01T09:00:00Z",
+            "end_date": "2025-12-31T17:00:00Z",
+            "budget": "2000000.00"
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Tender created successfully",
+            "body": {
+              "message": "Tender created successfully.",
+              "data": {
+                "tender_id": 3,
+                "title": "New Construction Project",
+                "description": "Building a new office complex",
+                "start_date": "2025-06-01T09:00:00Z",
+                "end_date": "2025-12-31T17:00:00Z",
+                "budget": "2000000.00",
+                "uploaded_files": [
+                  {
+                    "file_id": 10,
+                    "file_name": "blueprint.pdf",
+                    "file_type": "application/pdf",
+                    "file_size": 1024000
+                  }
+                ],
+                "files_count": 1
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - validation error",
+            "body": {
+              "message": "Error details",
+              "data": []
+            }
+          },
+          "401": {
+            "description": "Unauthorized - invalid or missing token",
+            "body": {
+              "detail": "Authentication credentials were not provided."
+            }
+          },
+          "403": {
+            "description": "Forbidden - not a superuser",
+            "body": {
+              "detail": "You do not have permission to perform this action."
+            }
+          }
+        }
+      },
+      {
+        "name": "Update Tender",
+        "method": "POST",
+        "endpoint": "/api/Tender/update/",
+        "description": "Updates an existing tender's information (does not include file management)",
+        "authentication": "JWT Token required + SuperUser permissions",
+        "request": {
+          "content_type": "application/json",
+          "body": {
+            "tender_id": {
+              "type": "integer",
+              "required": true,
+              "description": "ID of the tender to update"
+            },
+            "title": {
+              "type": "string",
+              "required": false,
+              "description": "New tender title"
+            },
+            "description": {
+              "type": "string",
+              "required": false,
+              "description": "New tender description"
+            },
+            "start_date": {
+              "type": "string",
+              "required": false,
+              "description": "New start date in ISO format"
+            },
+            "end_date": {
+              "type": "string",
+              "required": false,
+              "description": "New end date in ISO format"
+            },
+            "budget": {
+              "type": "number",
+              "required": false,
+              "description": "New budget amount"
+            }
+          },
+          "example": {
+            "tender_id": 1,
+            "title": "Updated Construction Project Alpha",
+            "budget": "1750000.00"
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Tender updated successfully",
+            "body": {
+              "message": "Tender updated successfully.",
+              "data": {
+                "tender_id": 1,
+                "updated_fields": ["title", "budget"],
+                "tender": {
+                  "title": "Updated Construction Project Alpha",
+                  "description": "Major construction project for office building",
+                  "start_date": "2025-06-01T09:00:00Z",
+                  "end_date": "2025-12-31T17:00:00Z",
+                  "budget": "1750000.00"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - tender_id missing or validation error",
+            "body": {
+              "message": "tender_id is required",
+              "data": []
+            }
+          },
+          "404": {
+            "description": "Tender not found",
+            "body": {
+              "message": "Tender not found.",
+              "data": []
+            }
+          },
+          "401": {
+            "description": "Unauthorized - invalid or missing token",
+            "body": {
+              "detail": "Authentication credentials were not provided."
+            }
+          },
+          "403": {
+            "description": "Forbidden - not a superuser",
+            "body": {
+              "detail": "You do not have permission to perform this action."
+            }
+          }
+        }
+      },
+      {
+        "name": "Add Tender Files",
+        "method": "POST",
+        "endpoint": "/api/Tender/addfile/",
+        "description": "Adds multiple files to an existing tender",
+        "authentication": "JWT Token required + SuperUser permissions",
+        "request": {
+          "content_type": "multipart/form-data",
+          "body": {
+            "tender_id": {
+              "type": "integer",
+              "required": true,
+              "description": "ID of the tender to add files to"
+            },
+            "files": {
+              "type": "file[]",
+              "required": true,
+              "description": "One or more files to upload (automatically timestamped for uniqueness)"
+            }
+          },
+          "example": {
+            "tender_id": 1,
+            "files": ["document1.pdf", "image1.jpg"]
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Files uploaded successfully",
+            "body": {
+              "message": "2 file(s) uploaded successfully.",
+              "data": {
+                "uploaded_files": [
+                  {
+                    "file_id": 15,
+                    "file_name": "document1_20250531143000.pdf",
+                    "original_filename": "document1.pdf",
+                    "file_type": "application/pdf",
+                    "file_size": 1024000
+                  },
+                  {
+                    "file_id": 16,
+                    "file_name": "image1_20250531143001.jpg",
+                    "original_filename": "image1.jpg",
+                    "file_type": "image/jpeg",
+                    "file_size": 512000
+                  }
+                ],
+                "files_count": 2,
+                "tender_id": 1
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - missing tender_id or files",
+            "body": {
+              "message": "tender_id is required",
+              "data": []
+            }
+          },
+          "404": {
+            "description": "Tender not found",
+            "body": {
+              "message": "Tender not found.",
+              "data": []
+            }
+          },
+          "401": {
+            "description": "Unauthorized - invalid or missing token",
+            "body": {
+              "detail": "Authentication credentials were not provided."
+            }
+          },
+          "403": {
+            "description": "Forbidden - not a superuser",
+            "body": {
+              "detail": "You do not have permission to perform this action."
+            }
+          }
+        }
+      },
+      {
+        "name": "Get Tender File Data",
+        "method": "GET",
+        "endpoint": "/api/Tender/getfiledata/",
+        "description": "Retrieves file data or metadata for a specific tender file",
+        "authentication": "JWT Token required",
+        "request": {
+          "parameters": {
+            "file_id": {
+              "type": "integer",
+              "required": true,
+              "location": "query",
+              "description": "The ID of the file to retrieve"
+            },
+            "metadata_only": {
+              "type": "string",
+              "required": false,
+              "location": "query",
+              "description": "Set to 'true' to get only metadata, omit or set to 'false' to download file",
+              "allowed_values": ["true", "false"]
+            }
+          },
+          "example_url": "/api/Tender/getfiledata/?file_id=1",
+          "example_metadata_url": "/api/Tender/getfiledata/?file_id=1&metadata_only=true"
+        },
+        "responses": {
+          "200_metadata": {
+            "description": "File metadata retrieved successfully (when metadata_only=true)",
+            "body": {
+              "message": "File metadata retrieved successfully",
+              "data": {
+                "file_id": 1,
+                "file_name": "project_blueprint.pdf",
+                "file_type": "application/pdf",
+                "file_size": 2048576,
+                "uploaded_at": "2025-05-29T10:30:00Z"
+              }
+            }
+          },
+          "200_download": {
+            "description": "File download (when metadata_only is not 'true')",
+            "content_type": "application/octet-stream or file specific type",
+            "body": "Binary file data with appropriate headers for download"
+          },
+          "400": {
+            "description": "Bad request - file_id missing",
+            "body": {
+              "message": "file_id is required",
+              "data": []
+            }
+          },
+          "404": {
+            "description": "File not found",
+            "body": {
+              "message": "File not found.",
+              "data": []
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "body": {
+              "message": "Error retrieving file: [error details]",
+              "data": []
+            }
+          }
+        }
+      },
+      {
+        "name": "Delete Tender File",
+        "method": "DELETE",
+        "endpoint": "/api/Tender/deletefile/",
+        "description": "Deletes a specific tender file by ID",
+        "authentication": "JWT Token required + SuperUser permissions",
+        "request": {
+          "parameters": {
+            "file_id": {
+              "type": "integer",
+              "required": true,
+              "location": "query",
+              "description": "The ID of the file to delete"
+            }
+          },
+          "example_url": "/api/Tender/deletefile/?file_id=5"
+        },
+        "responses": {
+          "200": {
+            "description": "Tender file deleted successfully",
+            "body": {
+              "message": "Tender file deleted successfully.",
+              "data": {
+                "file_id": 5
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - file_id missing",
+            "body": {
+              "message": "file_id is required",
+              "data": []
+            }
+          },
+          "404": {
+            "description": "File not found",
+            "body": {
+              "message": "File not found.",
+              "data": []
+            }
+          },
+          "401": {
+            "description": "Unauthorized - invalid or missing token",
+            "body": {
+              "detail": "Authentication credentials were not provided."
+            }
+          },
+          "403": {
+            "description": "Forbidden - not a superuser",
+            "body": {
+              "detail": "You do not have permission to perform this action."
+            }
+          }
+        }
+      },
+      {
+        "name": "Delete Tender",
+        "method": "DELETE",
+        "endpoint": "/api/Tender/delete/",
+        "description": "Deletes a specific tender and all associated files",
+        "authentication": "JWT Token required + SuperUser permissions",
+        "request": {
+          "content_type": "application/json",
+          "body": {
+            "tender_id": {
+              "type": "integer",
+              "required": true,
+              "description": "ID of the tender to delete"
+            }
+          },
+          "headers": {
+            "Authorization": "Bearer [JWT_TOKEN]",
+            "Content-Type": "application/json"
+          },
+          "example": {
+            "tender_id": 3
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Tender deleted successfully",
+            "body": {
+              "message": "Tender deleted successfully.",
+              "data": {
+                "tender_id": 3
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - tender_id missing",
+            "body": {
+              "message": "tender_id is required",
+              "data": []
+            }
+          },
+          "404": {
+            "description": "Tender not found",
+            "body": {
+              "message": "Tender not found.",
+              "data": []
+            }
+          },
+          "401": {
+            "description": "Unauthorized - invalid or missing token",
+            "body": {
+              "detail": "Authentication credentials were not provided."
+            }
+          },
+          "403": {
+            "description": "Forbidden - not a superuser",
+            "body": {
+              "detail": "You do not have permission to perform this action."
+            }
+          }
+        }
+      }
+    ],
+    "common_error_responses": {
+      "401": {
+        "description": "Unauthorized - Authentication required",
+        "body": {
+          "detail": "Authentication credentials were not provided."
+        }
+      },
+      "403": {
+        "description": "Forbidden - Insufficient permissions",
+        "body": {
+          "detail": "You do not have permission to perform this action."
+        }
+      },
+      "500": {
+        "description": "Internal Server Error",
+        "body": {
+          "message": "Internal server error occurred",
+          "data": []
+        }
+      }
+    },
+    "authentication": {
+      "type": "JWT Bearer Token",
+      "description": "Include the token in the Authorization header",
+      "header_format": "Authorization: Bearer [TOKEN]",
+      "token_obtained_from": "/api/User/login/ endpoint",
+      "token_lifetime": "Access tokens have limited lifetime, refresh as needed"
+    },
+    "data_models": {
+      "Tender": {
+        "tender_id": "AutoField (Primary Key)",
+        "title": "CharField (max 255 characters)",
+        "description": "TextField",
+        "start_date": "DateTimeField",
+        "end_date": "DateTimeField (nullable)",
+        "budget": "DecimalField (15 digits, 2 decimal places)",
+        "created_by": "ForeignKey to User (nullable, SET_NULL on delete)"
+      },
+      "Tender_Files": {
+        "file_id": "AutoField (Primary Key)",
+        "tender": "ForeignKey to Tender (CASCADE on delete)",
+        "file_name": "CharField (max 100 characters, unique)",
+        "file_type": "CharField (max 255 characters)",
+        "file_size": "PositiveIntegerField",
+        "file_data": "BinaryField (BLOB)",
+        "Uploaded_At": "DateTimeField (auto_now_add)"
+      }
+    },
+    "business_rules": {
+      "permissions": {
+        "read_tenders": "Any authenticated user can view tenders and files",
+        "create_tender": "Only superusers can create new tenders",
+        "update_tender": "Only superusers can update existing tenders",
+        "delete_tender": "Only superusers can delete tenders",
+        "manage_files": "Only superusers can add/delete tender files"
+      },
+      "file_handling": {
+        "unique_names": "Files are automatically timestamped to ensure unique names",
+        "storage": "Files are stored as BLOB data in the database",
+        "cascade_delete": "Deleting a tender automatically deletes all associated files"
+      },
+      "notifications": {
+        "creation": "Creating a tender sends notifications to both normal users and superusers",
+        "updates": "Updating a tender sends notifications to normal users",
+        "deletion": "Deleting a tender sends notifications to normal users"
+      }
+    },
+    "notes": {
+      "file_uploads": "File uploads use multipart/form-data and support various formats up to 10MB per file",
+      "pagination": "List endpoints support pagination with page and page_size parameters (default page_size: 5, max: 100)",
+      "searching": "List endpoint supports searching by title, description, and creator username",
+      "ordering": "Tenders are ordered by start_date in descending order (newest first)",
+      "timestamps": "All timestamps are in ISO 8601 format (YYYY-MM-DDTHH:MM:SSZ)",
+      "file_storage": "Files are stored as BLOB data in the database with metadata",
+      "unique_filenames": "Uploaded files are automatically timestamped to prevent naming conflicts",
+      "cascading_deletes": "Deleting a tender automatically deletes all associated files"
+    }
+  }
+}

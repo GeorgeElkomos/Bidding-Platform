@@ -37,6 +37,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",  # Vite default port
     "http://localhost:8080",  # Another common development port
     "http://127.0.0.1:8080",
+    "http://localhost:4173"
 ]
 CORS_ALLOW_METHODS = [
     "DELETE",
