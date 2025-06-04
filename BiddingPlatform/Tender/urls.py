@@ -9,6 +9,7 @@ from Tender.views import (
     Delete_TenderFileView,
     Add_TenderFileView,
     Delete_TenderView,
+    Evaluate_Tender_Bits
 )
 
 urlpatterns = [
@@ -21,4 +22,6 @@ urlpatterns = [
     path("addfile/", Add_TenderFileView.as_view(), name="add_tender_file"),
     path("deletefile/", Delete_TenderFileView.as_view(), name="delete_tender_file"),
     path("delete/", Delete_TenderView.as_view(), name="delete_tender"),
+    path("evaluate/", Evaluate_Tender_Bits.as_view(), name="evaluate_tender"),
+    
 ]

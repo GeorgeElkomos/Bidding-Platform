@@ -5,11 +5,17 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.pagination import PageNumberPagination
 from django.db.models import Q
+from django.core.exceptions import ValidationError
 from User.models import Notification
 from Tender.models import Tender, Tender_Files
+from Bit.models import Bit_Files
+from tender_evaluator import TenderEvaluator
 from .permissions import IsSuperUser
 from django.http import FileResponse
 import io
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Create your views here.
 
@@ -461,4 +467,121 @@ class Delete_TenderView(APIView):
             return Response(
                 {"message": str(e), "data": []},
                 status=status.HTTP_400_BAD_REQUEST,
+            )
+
+class Evaluate_Tender_Bits(APIView):
+    """View to evaluate tenders based on terms and proposals."""
+
+    permission_classes = [IsAuthenticated, IsSuperUser]
+
+    async def post(self, request):
+        """
+        Evaluate tender proposals based on terms file and proposal files.
+        """
+        try:
+            # Get tender file ID from request
+            tender_file_id = request.data.get("tender_file_id")
+            if not tender_file_id:
+                return Response(
+                    {"message": "Terms file is required", "data": []},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Get proposal file IDs from request
+            proposal_file_ids = request.data.get("Bits_Proposal_file_ids", [])
+            if not proposal_file_ids:
+                return Response(
+                    {"message": "At least one proposal file is required", "data": []},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if not isinstance(proposal_file_ids, list):
+                proposal_file_ids = [proposal_file_ids]
+
+            # Get terms file data
+            try:
+                tender_file = Tender_Files.objects.get(file_id=tender_file_id)
+                terms_file_data = {
+                    'name': tender_file.file_name,
+                    'content_type': tender_file.file_type,
+                    'size': tender_file.file_size,
+                    'data': tender_file.file_data
+                }
+            except Tender_Files.DoesNotExist:
+                return Response(
+                    {"message": f"Terms file with ID {tender_file_id} not found", "data": []},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            # Get proposals file data
+            proposals_file_data = []
+            for file_id in proposal_file_ids:
+                try:
+                    bit_file = Bit_Files.objects.get(file_id=file_id)
+                    proposals_file_data.append({
+                        'name': bit_file.file_name,
+                        'content_type': bit_file.file_type,
+                        'size': bit_file.file_size,
+                        'data': bit_file.file_data
+                    })
+                except Bit_Files.DoesNotExist:
+                    return Response(
+                        {"message": f"Proposal file with ID {file_id} not found", "data": []},
+                        status=status.HTTP_404_NOT_FOUND,
+                    )
+
+            # Create UploadedFile objects for terms and proposals
+            from django.core.files.uploadedfile import SimpleUploadedFile
+            
+            terms = SimpleUploadedFile(
+                terms_file_data['name'],
+                terms_file_data['data'],
+                content_type=terms_file_data['content_type']
+            )
+
+            proposals = []
+            for prop in proposals_file_data:
+                proposal_file = SimpleUploadedFile(
+                    prop['name'],
+                    prop['data'],
+                    content_type=prop['content_type']
+                )
+                proposals.append(proposal_file)
+
+            # Initialize the evaluator and process the files
+            evaluator = TenderEvaluator()
+            
+            # Get the top N parameter (default to 3 if not provided)
+            top_n = int(request.data.get("top_n", 3))
+            
+            # Evaluate the proposals
+            result = await evaluator.evaluate_tender(terms, proposals, top_n)
+            
+            return Response(
+                {
+                    "message": "Evaluation completed successfully",
+                    "data": result
+                },
+                status=status.HTTP_200_OK
+            )
+            
+        except ValidationError as e:
+            return Response(
+                {"message": str(e), "data": []},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except (Tender_Files.DoesNotExist, Bit_Files.DoesNotExist) as e:
+            return Response(
+                {"message": str(e), "data": []},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except ValueError as e:
+            return Response(
+                {"message": f"Invalid parameter: {str(e)}", "data": []},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            logger.error(f"Error in tender evaluation: {str(e)}", exc_info=True)
+            return Response(
+                {"message": f"Evaluation failed: {str(e)}", "data": []},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
