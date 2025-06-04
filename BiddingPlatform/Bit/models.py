@@ -41,5 +41,8 @@ class Bit(models.Model):
         default=None, blank=True, null=True
     )  # Indicates if the bit is accepted
 
+    class Meta:
+        unique_together = ('created_by', 'tender')  # Prevent multiple bids from same user for same tender
+
     def __str__(self):
         return self.title

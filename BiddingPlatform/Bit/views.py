@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.pagination import PageNumberPagination
 from django.db.models import Q
+from django.db import IntegrityError
 from django.http import FileResponse
 import io
 from User.models import Notification
@@ -362,6 +363,14 @@ class Create_BitView(APIView):
             tender = Tender.objects.get(tender_id=tender_id)
             user = request.user
 
+            # Check if user already has a bid for this tender
+            existing_bit = Bit.objects.filter(created_by=user, tender=tender).first()
+            if existing_bit:
+                return Response(
+                    {"message": "You have already submitted a bid for this tender", "data": []},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             bit = Bit.objects.create(
                 title=data.get("title"),
                 description=data.get("description"),
@@ -370,6 +379,7 @@ class Create_BitView(APIView):
                 tender=tender,
                 cost=data.get("cost"),
             )
+            
             # Handle file uploads
             vat_files = request.FILES.getlist("files")
             if vat_files:
@@ -377,10 +387,21 @@ class Create_BitView(APIView):
                     # Read the file data
                     file_data = file.read()
 
+                    # Create unique filenames with timestamp to avoid conflicts
+                    import datetime
+                    import os
+
+                    # Split the filename into name and extension
+                    file_name, file_extension = os.path.splitext(file.name)
+
+                    # Add current timestamp to ensure uniqueness
+                    timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
+                    unique_filename = f"{file_name}_{timestamp}{file_extension}"
+
                     # Create the attachment record
                     Bit_Files.objects.create(
                         bit=bit,
-                        file_name=file.name,
+                        file_name=unique_filename,
                         file_type=file.content_type,
                         file_size=file.size,
                         file_data=file_data,
@@ -391,8 +412,7 @@ class Create_BitView(APIView):
                 "title": bit.title,
                 "description": bit.description,
                 "cost": str(bit.cost),
-                "date": bit.date,
-            }
+                "date": bit.date,            }
             # Notify the tender creator about the new bit
             Notification.send_notification(
                 message=f"New Bit Created for Tender {tender.title} by {user.username}", target_type="SUPER"
@@ -405,6 +425,11 @@ class Create_BitView(APIView):
             return Response(
                 {"message": "Tender not found", "data": []},
                 status=status.HTTP_404_NOT_FOUND,
+            )
+        except IntegrityError:
+            return Response(
+                {"message": "You have already submitted a bid for this tender", "data": []},
+                status=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as e:
             return Response(
@@ -473,10 +498,8 @@ class Add_BitFileView(APIView):
                 import os
 
                 # Split the filename into name and extension
-                file_name, file_extension = os.path.splitext(file.name)
-
-                # Add current timestamp to ensure uniqueness
-                timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+                file_name, file_extension = os.path.splitext(file.name)                # Add current timestamp to ensure uniqueness
+                timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
                 unique_filename = f"{file_name}_{timestamp}{file_extension}"
 
                 # Create the attachment record with BLOB data
