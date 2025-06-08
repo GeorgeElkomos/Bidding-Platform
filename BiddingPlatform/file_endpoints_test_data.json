@@ -1,0 +1,649 @@
+Django backend apis for get all needed
+{
+    "file_endpoints": {
+        "tender_file_download": {
+            "url": "http://localhost:8000/api/tender/getfiledata/",
+            "method": "GET",
+            "description": "Download tender file by file ID",
+            "headers": {
+                "Authorization": "Bearer your_access_token_here"
+            },
+            "query_parameters": {
+                "file_id": "1",
+                "note": "Replace '1' with the actual file_id from tender files"
+            },
+            "example_urls": [
+                "http://localhost:8000/api/tender/getfiledata/?file_id=1",
+                "http://localhost:8000/api/tender/getfiledata/?file_id=2"
+            ],
+            "response_type": "File Download",
+            "expected_behavior": "Downloads the file as attachment with proper filename and content type",
+            "error_responses": {
+                "400": {
+                    "message": "file_id is required",
+                    "data": []
+                },
+                "404": {
+                    "message": "File not found.",
+                    "data": []
+                }
+            }
+        },
+        "tender_file_metadata": {
+            "url": "http://localhost:8000/api/tender/getfiledata/",
+            "method": "GET",
+            "description": "Get tender file metadata without downloading",
+            "headers": {
+                "Authorization": "Bearer your_access_token_here"
+            },
+            "query_parameters": {
+                "file_id": "1",
+                "metadata_only": "true"
+            },
+            "example_urls": [
+                "http://localhost:8000/api/tender/getfiledata/?file_id=1&metadata_only=true"
+            ],
+            "expected_response": {
+                "message": "File metadata retrieved successfully",
+                "data": {
+                    "file_id": 1,
+                    "file_name": "tender_document.pdf",
+                    "file_type": "application/pdf",
+                    "file_size": 1024567,
+                    "uploaded_at": "2024-01-15T10:30:00Z"
+                }
+            }
+        },
+        "bid_file_download": {
+            "url": "http://localhost:8000/api/bit/getfiledata/",
+            "method": "GET",
+            "description": "Download bid file by file ID",
+            "headers": {
+                "Authorization": "Bearer your_access_token_here"
+            },
+            "query_parameters": {
+                "file_id": "1",
+                "note": "Replace '1' with the actual file_id from bid files"
+            },
+            "example_urls": [
+                "http://localhost:8000/api/bit/getfiledata/?file_id=1",
+                "http://localhost:8000/api/bit/getfiledata/?file_id=3"
+            ],
+            "response_type": "File Download",
+            "expected_behavior": "Downloads the file as attachment with proper filename and content type",
+            "error_responses": {
+                "400": {
+                    "message": "file_id is required",
+                    "data": []
+                },
+                "404": {
+                    "message": "File not found",
+                    "data": []
+                }
+            }
+        },
+        "bid_file_metadata": {
+            "url": "http://localhost:8000/api/bit/getfiledata/",
+            "method": "GET",
+            "description": "Get bid file metadata without downloading",
+            "headers": {
+                "Authorization": "Bearer your_access_token_here"
+            },
+            "query_parameters": {
+                "file_id": "1",
+                "metadata_only": "true"
+            },
+            "example_urls": [
+                "http://localhost:8000/api/bit/getfiledata/?file_id=1&metadata_only=true"
+            ],
+            "expected_response": {
+                "message": "File metadata retrieved successfully",
+                "data": {
+                    "file_id": 1,
+                    "file_name": "proposal_document.pdf",
+                    "file_type": "application/pdf",
+                    "file_size": 2048000,
+                    "uploaded_at": "2024-01-20T14:45:00Z"
+                }
+            }
+        },
+        "tender_evaluation": {
+            "url": "http://localhost:8000/api/tender/Tender_and_Bids_files_By_Tender_Id/",
+            "method": "GET",
+            "description": "Get comprehensive tender evaluation with all files and bids data",
+            "permissions": "Requires authenticated superuser",
+            "headers": {
+                "Authorization": "Bearer your_superuser_access_token_here"
+            },
+            "query_parameters": {
+                "tender_id": "1",
+                "note": "Replace '1' with the actual tender_id you want to evaluate"
+            },
+            "example_urls": [
+                "http://localhost:8000/api/tender/Tender_and_Bids_files_By_Tender_Id/?tender_id=1",
+                "http://localhost:8000/api/tender/Tender_and_Bids_files_By_Tender_Id/?tender_id=2"
+            ],
+            "expected_response": {
+                "message": "Tender and bids data retrieved successfully",
+                "data": {
+                    "tender": {
+                        "tender_id": 1,
+                        "title": "Construction Project Tender",
+                        "description": "Building construction project in downtown area",
+                        "start_date": "2024-01-01T00:00:00Z",
+                        "end_date": "2024-03-01T00:00:00Z",
+                        "budget": "500000.00",
+                        "created_by": "admin_user",
+                        "files": [
+                            {
+                                "file_id": 1,
+                                "file_name": "project_specifications.pdf",
+                                "file_type": "application/pdf",
+                                "file_size": 1024567,
+                                "uploaded_at": "2024-01-01T10:00:00Z"
+                            },
+                            {
+                                "file_id": 2,
+                                "file_name": "blueprint_plans.dwg",
+                                "file_type": "application/dwg",
+                                "file_size": 5120000,
+                                "uploaded_at": "2024-01-01T10:30:00Z"
+                            }
+                        ]
+                    },
+                    "bids": [
+                        {
+                            "bit_id": 1,
+                            "title": "ABC Construction Bid",
+                            "description": "Comprehensive construction solution",
+                            "date": "2024-01-15T00:00:00Z",
+                            "cost": "450000.00",
+                            "is_accepted": null,
+                            "created_by": "abc_construction",
+                            "files": [
+                                {
+                                    "file_id": 1,
+                                    "file_name": "abc_proposal.pdf",
+                                    "file_type": "application/pdf",
+                                    "file_size": 2048000,
+                                    "uploaded_at": "2024-01-15T14:30:00Z"
+                                }
+                            ]
+                        },
+                        {
+                            "bit_id": 2,
+                            "title": "XYZ Builders Bid",
+                            "description": "Quality construction with fast delivery",
+                            "date": "2024-01-18T00:00:00Z",
+                            "cost": "475000.00",
+                            "is_accepted": true,
+                            "created_by": "xyz_builders",
+                            "files": [
+                                {
+                                    "file_id": 2,
+                                    "file_name": "xyz_detailed_proposal.pdf",
+                                    "file_type": "application/pdf",
+                                    "file_size": 3072000,
+                                    "uploaded_at": "2024-01-18T16:00:00Z"
+                                },
+                                {
+                                    "file_id": 3,
+                                    "file_name": "xyz_timeline.xlsx",
+                                    "file_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                    "file_size": 512000,
+                                    "uploaded_at": "2024-01-18T16:15:00Z"
+                                }
+                            ]
+                        }
+                    ],
+                    "summary": {
+                        "total_bids": 5,
+                        "accepted_bids": 1,
+                        "pending_bids": 3,
+                        "rejected_bids": 1,
+                        "lowest_bid": "420000.00",
+                        "highest_bid": "495000.00",
+                        "average_bid": "460000.00",
+                        "tender_files_count": 2,
+                        "total_bid_files": 8
+                    }
+                }
+            },
+            "error_responses": {
+                "400": {
+                    "message": "tender_id is required",
+                    "data": {}
+                },
+                "404": {
+                    "message": "Tender not found.",
+                    "data": {}
+                },
+                "403": {
+                    "message": "Permission denied. Superuser access required."
+                }
+            }
+        }
+    },
+    "postman_setup_instructions": {
+        "file_download_testing": {
+            "step1": "First, create/upload some tender and bid files using the create/addfile endpoints",
+            "step2": "Note down the file_ids from the response or use the list/details endpoints to get file_ids",
+            "step3": "For file downloads, set method to GET and add Authorization header",
+            "step4": "Add query parameter 'file_id' with the actual file ID",
+            "step5": "For metadata only, add query parameter 'metadata_only=true'",
+            "step6": "Send request - file downloads will trigger browser download or show in Postman preview"
+        },
+        "tender_evaluation_testing": {
+            "step1": "Ensure you have superuser authentication token",
+            "step2": "Create a tender with files using the tender creation endpoints",
+            "step3": "Create multiple bids for the tender with their files",
+            "step4": "Use the tender_id in the evaluation endpoint",
+            "step5": "Review the comprehensive response with all tender and bid data"
+        },
+        "authentication_notes": {
+            "superuser_required": "The tender evaluation endpoint requires superuser permissions",
+            "token_format": "Use 'Bearer your_token_here' in Authorization header",
+            "token_source": "Obtain token from user login endpoint with superuser credentials"
+        },
+        "testing_workflow": {
+            "step1": "Login as superuser to get authentication token",
+            "step2": "Create a tender with files",
+            "step3": "Login as company users and create bids with files",
+            "step4": "Use file download endpoints to test individual file downloads",
+            "step5": "Use evaluation endpoint to get comprehensive tender analysis",
+            "step6": "Test error scenarios with invalid file_ids and tender_ids"
+        }
+    },
+    "example_test_scenarios": {
+        "scenario_1_successful_file_download": {
+            "description": "Download a tender specification file",
+            "endpoint": "GET /api/tender/getfiledata/?file_id=1",
+            "expected_result": "PDF file downloads successfully"
+        },
+        "scenario_2_file_metadata": {
+            "description": "Get file information without downloading",
+            "endpoint": "GET /api/tender/getfiledata/?file_id=1&metadata_only=true",
+            "expected_result": "JSON response with file metadata"
+        },
+        "scenario_3_bid_file_download": {
+            "description": "Download a bid proposal document",
+            "endpoint": "GET /api/bit/getfiledata/?file_id=3",
+            "expected_result": "Document file downloads successfully"
+        },
+        "scenario_4_comprehensive_evaluation": {
+            "description": "Get full tender evaluation with all bids and files",
+            "endpoint": "GET /api/tender/Tender_and_Bids_files_By_Tender_Id/?tender_id=1",
+            "expected_result": "Complete JSON response with tender details, all bids, files, and statistical summary"
+        },
+        "scenario_5_error_handling": {
+            "description": "Test with non-existent file ID",
+            "endpoint": "GET /api/tender/getfiledata/?file_id=999999",
+            "expected_result": "404 error with appropriate message"
+        }
+    },
+    "file_types_supported": {
+        "documents": ["pdf", "doc", "docx", "txt"],
+        "spreadsheets": ["xls", "xlsx", "csv"],
+        "images": ["jpg", "jpeg", "png", "gif"],
+        "cad_files": ["dwg", "dxf"],
+        "archives": ["zip", "rar", "7z"],
+        "note": "All files are stored as binary data in the database and served with appropriate content types"
+    },    "performance_considerations": {
+        "large_files": "Files are loaded into memory using io.BytesIO, consider file size limits",
+        "concurrent_downloads": "Multiple simultaneous downloads may impact server performance",
+        "caching": "Consider implementing caching for frequently accessed files",
+        "security": "File access is restricted by authentication and permissions"
+    },
+    "ai_evaluation_features": {
+        "description": "The tender evaluation endpoint includes AI-powered analysis capabilities",
+        "ai_features": {
+            "document_analysis": "Analyzes tender documents and bid proposals using Google Gemini AI",
+            "automated_scoring": "Provides automated scoring and evaluation of bids against tender requirements",
+            "compliance_checking": "Checks bid compliance with tender specifications",
+            "recommendation_system": "AI recommendations for bid selection"
+        },
+        "ai_configuration": {
+            "model": "Google Gemini Pro",
+            "api_key_required": "GEMINI_API_KEY in environment variables",
+            "document_processing": "Supports PDF, DOC, DOCX, TXT file analysis",
+            "async_processing": "Uses asynchronous processing for large document sets"
+        },
+        "ai_response_format": {
+            "evaluation_score": "Numerical score (0-100) for each bid",
+            "strengths": "Array of identified strengths in the proposal",
+            "weaknesses": "Array of areas for improvement",
+            "compliance_status": "Boolean indicating compliance with requirements",
+            "recommendation": "AI recommendation (RECOMMEND, CONSIDER, NOT_RECOMMEND)",
+            "reasoning": "Detailed explanation of the AI evaluation"
+        }
+    },
+    "additional_endpoints": {
+        "add_tender_files": {
+            "url": "http://localhost:8000/api/tender/addfile/",
+            "method": "POST",
+            "description": "Add multiple files to an existing tender",
+            "headers": {
+                "Authorization": "Bearer your_superuser_access_token_here"
+            },
+            "form_data": {
+                "tender_id": "1",
+                "files": "Select multiple files in Postman"
+            },
+            "note": "Use form-data in Postman, not raw JSON"
+        },
+        "add_bid_files": {
+            "url": "http://localhost:8000/api/bit/addfile/",
+            "method": "POST",
+            "description": "Add multiple files to an existing bid",
+            "headers": {
+                "Authorization": "Bearer your_access_token_here"
+            },
+            "form_data": {
+                "bit_id": "1",
+                "files": "Select multiple files in Postman"
+            },
+            "note": "Use form-data in Postman, not raw JSON"
+        },
+        "delete_tender_file": {
+            "url": "http://localhost:8000/api/tender/deletefile/",
+            "method": "DELETE",
+            "description": "Delete a specific tender file",
+            "headers": {
+                "Authorization": "Bearer your_superuser_access_token_here"
+            },
+            "query_parameters": {
+                "file_id": "1"
+            }
+        },
+        "delete_bid_file": {
+            "url": "http://localhost:8000/api/bit/deletefile/",
+            "method": "DELETE",
+            "description": "Delete a specific bid file",
+            "headers": {
+                "Authorization": "Bearer your_access_token_here"
+            },
+            "query_parameters": {
+                "file_id": "1"
+            }
+        }
+    },
+    "complete_testing_workflow": {
+        "phase_1_setup": {
+            "step1": "Register superuser account via /api/user/register/",
+            "step2": "Register company user accounts for bid creation",
+            "step3": "Login as superuser to get authentication token",
+            "step4": "Create tender with files via /api/tender/create/",
+            "step5": "Note down tender_id and file_ids from response"
+        },
+        "phase_2_bid_creation": {
+            "step1": "Login as company users to get their tokens",
+            "step2": "Create bids for the tender via /api/bit/create/",
+            "step3": "Add files to each bid via /api/bit/addfile/",
+            "step4": "Note down bit_ids and file_ids for testing"
+        },
+        "phase_3_file_testing": {
+            "step1": "Test tender file downloads using file_ids",
+            "step2": "Test bid file downloads using file_ids",
+            "step3": "Test file metadata retrieval with metadata_only=true",
+            "step4": "Test error scenarios with invalid file_ids"
+        },
+        "phase_4_evaluation": {
+            "step1": "Use tender evaluation endpoint with tender_id",
+            "step2": "Verify comprehensive response with all data",
+            "step3": "Check AI evaluation results (if configured)",
+            "step4": "Test with different tender_ids"
+        }
+    },
+    "troubleshooting": {
+        "file_not_downloading": "Check if Authorization header is properly set",
+        "permission_denied": "Ensure user has appropriate permissions (superuser for some endpoints)",
+        "file_not_found": "Verify file_id exists using list/details endpoints",
+        "empty_response": "Check if tender has files or bids associated",
+        "ai_evaluation_error": "Verify GEMINI_API_KEY is set in environment variables"
+    }
+}
+
+
+
+Fast API Endpoint for api:
+{
+	"info": {
+		"_postman_id": "evaluate-endpoint-only",
+		"name": "Tender Evaluation - /evaluate endpoint",
+		"description": "Simple collection for testing only the /evaluate endpoint",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Evaluate Tender",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "terms",
+							"type": "file",
+							"src": "",
+							"description": "كراسة الشروط والمواصفات (Terms & Specifications PDF file)"
+						},
+						{
+							"key": "proposals",
+							"type": "file",
+							"src": "",
+							"description": "Technical proposal PDF file 1"
+						},
+						{
+							"key": "proposals",
+							"type": "file",
+							"src": "",
+							"description": "Technical proposal PDF file 2 (add more as needed)"
+						},
+						{
+							"key": "top_n",
+							"value": "3",
+							"type": "text",
+							"description": "Number of top companies to return (1-10)"
+						},
+						{
+							"key": "terms_budget",
+							"value": "5000000.00",
+							"type": "text",
+							"description": "Budget specified in terms document (SAR)"
+						},
+						{
+							"key": "proposals_budget",
+							"value": "4500000.00",
+							"type": "text",
+							"description": "Budget for proposal 1 (SAR)"
+						},
+						{
+							"key": "proposals_budget",
+							"value": "4800000.00",
+							"type": "text",
+							"description": "Budget for proposal 2 (SAR)"
+						}
+					]
+				},
+				"url": {
+					"raw": "http://localhost:8001/evaluate",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8001",
+					"path": [
+						"evaluate"
+					]
+				},
+				"description": "Evaluate tender proposals using multi-agent system.\n\n**Required:**\n- terms: PDF file (كراسة الشروط)\n- proposals: One or more PDF files\n- top_n: Number (1-10)\n- terms_budget: Float (SAR)\n- proposals_budget: Float for each proposal\n\n**Note:** Number of proposals_budget values must match number of proposal files."
+			}
+		}
+	]
+}
+
+
+response Example: 
+{
+    "chosen": [
+        {
+            "company": "العرض الفني - المركز الوطني للرقابة على الالتزام البيئي",
+            "total_score": 38.8,
+            "rank": 1,
+            "reasons": [
+                "أظهرت الشركة غير قادر على تحديد نقاط قوة بناءً على المعلومات المتاحة. النص المقدم غير كاف لتقييم الجوانب الفنية للعرض. مما يؤكد قدرتها على تنفيذ المشروع بنجاح",
+                "تميز العرض الفني بتغطيته بعض المتطلبات الفنية الهامة والإشارة إلى اتفاقيات مستوى الخدمة (SLA) المقترحة.",
+                "تمتلك الشركة خبرات سابقة ذات صلة بموضوع العطاء، مما يعزز قدرتها على تنفيذ المشروع بنجاح.",
+                "وجود مشاريع سابقة مماثلة في سجل أداء الشركة يعكس فهمها لمتطلبات العمل وقدرتها على تحقيق النتائج المرجوة."
+            ]
+        }
+    ],
+    "not_chosen": [
+        {
+            "company": "العرض الفني - بحر العرب",
+            "criterion_scores": {
+                "القيمة المالية": 20,
+                "مدى المطابقة للمواصفات": 65,
+                "خطة التسليم": 20,
+                "الأداء السابق": 65
+            },
+            "weighted_scores": {
+                "القيمة المالية": 8.0,
+                "مدى المطابقة للمواصفات": 19.5,
+                "خطة التسليم": 4.0,
+                "الأداء السابق": 6.5
+            },
+            "total_score": 34.96,
+            "score_breakdown": [
+                {
+                    "criterion": "القيمة المالية",
+                    "raw_score": 20,
+                    "weight": 40,
+                    "weighted_score": 8.0
+                },
+                {
+                    "criterion": "مدى المطابقة للمواصفات",
+                    "raw_score": 65,
+                    "weight": 30,
+                    "weighted_score": 19.5
+                },
+                {
+                    "criterion": "خطة التسليم",
+                    "raw_score": 20,
+                    "weight": 20,
+                    "weighted_score": 4.0
+                },
+                {
+                    "criterion": "الأداء السابق",
+                    "raw_score": 65,
+                    "weight": 10,
+                    "weighted_score": 6.5
+                }
+            ],
+            "original_score_before_budget": 38.0,
+            "budget_adjustment": {
+                "factor": 0.92,
+                "type": "تجاوز كبير للميزانية",
+                "budget_ratio": 1.113,
+                "competitiveness_score": 25,
+                "adjustment_amount": -3.04
+            }
+        },
+        {
+            "company": "العرض الفني نيوليفر",
+            "criterion_scores": {
+                "القيمة المالية": 20,
+                "مدى المطابقة للمواصفات": 65,
+                "خطة التسليم": 10,
+                "الأداء السابق": 65
+            },
+            "weighted_scores": {
+                "القيمة المالية": 8.0,
+                "مدى المطابقة للمواصفات": 19.5,
+                "خطة التسليم": 2.0,
+                "الأداء السابق": 6.5
+            },
+            "total_score": 34.92,
+            "score_breakdown": [
+                {
+                    "criterion": "القيمة المالية",
+                    "raw_score": 20,
+                    "weight": 40,
+                    "weighted_score": 8.0
+                },
+                {
+                    "criterion": "مدى المطابقة للمواصفات",
+                    "raw_score": 65,
+                    "weight": 30,
+                    "weighted_score": 19.5
+                },
+                {
+                    "criterion": "خطة التسليم",
+                    "raw_score": 10,
+                    "weight": 20,
+                    "weighted_score": 2.0
+                },
+                {
+                    "criterion": "الأداء السابق",
+                    "raw_score": 65,
+                    "weight": 10,
+                    "weighted_score": 6.5
+                }
+            ],
+            "original_score_before_budget": 36.0,
+            "budget_adjustment": {
+                "factor": 0.97,
+                "type": "تجاوز بسيط للميزانية",
+                "budget_ratio": 1.1,
+                "competitiveness_score": 45,
+                "adjustment_amount": -1.08
+            }
+        }
+    ],
+    "evaluation_criteria": [
+        {
+            "name": "القيمة المالية",
+            "weight": 40,
+            "description": "مقارنة السعر بالعطاءات الأخرى وميزانية الجهة"
+        },
+        {
+            "name": "مدى المطابقة للمواصفات",
+            "weight": 30,
+            "description": "درجة الالتزام بالمتطلبات الفنية والقانونية الواردة في الكراسة"
+        },
+        {
+            "name": "خطة التسليم",
+            "weight": 20,
+            "description": "سرعة وواقعية جدول التسليم والتنفيذ المقترح"
+        },
+        {
+            "name": "الأداء السابق",
+            "weight": 10,
+            "description": "سجل مقدم العرض وخبرته في تنفيذ مشاريع مماثلة بجودة عالية"
+        }
+    ],
+    "evaluation_summary": {
+        "total_companies_evaluated": 3,
+        "companies_selected": 1,
+        "selection_rate": 33.3,
+        "average_winning_score": 38.8,
+        "score_range": {
+            "highest": 38.8,
+            "lowest": 38.8
+        },
+        "quality_assessment": "مستوى مقبول من الجودة في العروض المختارة"
+    },
+    "workflow_metadata": {
+        "workflow_id": "workflow_eae4e0c2",
+        "processing_time": 75.72412514686584,
+        "agent_system_used": true,
+        "evaluation_phases": [
+            "PDF Processing",
+            "Criteria Detection",
+            "Proposal Analysis",
+            "Scoring & Ranking",
+            "Response Generation"
+        ]
+    }
+}

@@ -9,19 +9,18 @@ from Tender.views import (
     Delete_TenderFileView,
     Add_TenderFileView,
     Delete_TenderView,
-    Evaluate_Tender_Bits,
-    Evaluate_Tender_By_IDView
+    Tender_and_Bids_files_By_Tender_Id
 )
 
 urlpatterns = [
     path("getall/", List_All_TendersView.as_view(), name="tender_list"),
     path("create/", Create_TenderView.as_view(), name="create_tender"),
     path("getfiledata/", Get_TenderFile_Data.as_view(), name="get_tender_file_data"),
-    path("details/", Tender_DetailView.as_view(), name="tender_detail"),    path("update/", Update_TenderView.as_view(), name="update_tender"),
+    path("details/", Tender_DetailView.as_view(), name="tender_detail"),
+    path("update/", Update_TenderView.as_view(), name="update_tender"),
     path("addfile/", Add_TenderFileView.as_view(), name="add_tender_file"),
     path("deletefile/", Delete_TenderFileView.as_view(), name="delete_tender_file"),
     path("delete/", Delete_TenderView.as_view(), name="delete_tender"),
-    path("evaluate/", Evaluate_Tender_Bits.as_view(), name="evaluate_tender"),
-    path("evaluate-by-id/", Evaluate_Tender_By_IDView.as_view(), name="evaluate_tender_by_id"),
+    path("Tender_and_Bids_files_By_Tender_Id/", Tender_and_Bids_files_By_Tender_Id.as_view(), name="evaluate_tender_by_id"),
     
 ]

@@ -8,16 +8,143 @@ from django.db.models import Q
 from django.core.exceptions import ValidationError
 from User.models import Notification
 from Tender.models import Tender, Tender_Files
-from Bit.models import Bit_Files
-from tender_evaluator import TenderEvaluator
+from Bit.models import Bit, Bit_Files
 from .permissions import IsSuperUser
 from django.http import FileResponse
+from asgiref.sync import sync_to_async
 import io
 import logging
+import asyncio
+import os
+import re
+import json
+import datetime
+from typing import List, Dict, Any, Union, BinaryIO
+from langchain_google_genai import ChatGoogleGenerativeAI
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-# Create your views here.
+
+class Tender_and_Bids_files_By_Tender_Id(APIView):
+    """View to retrieve all files budgets related to a specific tender by its ID and its bids files and budgets."""
+
+    permission_classes = [IsAuthenticated, IsSuperUser]
+
+    def get(self, request):
+        try:
+            # Get tender ID from request parameters
+            tender_id = request.query_params.get("tender_id")
+            
+            if not tender_id:
+                return Response(
+                    {"message": "tender_id is required", "data": {}},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            
+            # Get the tender
+            tender = Tender.objects.get(tender_id=tender_id)
+            
+            # Get all tender files
+            tender_files = tender.files.all().order_by("-Uploaded_At")
+            
+            # Get all bids for this tender
+            bids = tender.bits.all().order_by("-date")
+            
+            # Prepare tender data
+            tender_data = {
+                "tender_id": tender.tender_id,
+                "title": tender.title,
+                "description": tender.description,
+                "start_date": tender.start_date,
+                "end_date": tender.end_date,
+                "budget": tender.budget,
+                "created_by": tender.created_by.username if tender.created_by else None,
+                "files": [
+                    {
+                        "file_id": file.file_id,
+                        "file_name": file.file_name,
+                        "file_type": file.file_type,
+                        "file_size": file.file_size,
+                        "uploaded_at": file.Uploaded_At,
+                    }
+                    for file in tender_files
+                ]
+            }
+            
+            # Prepare bids data
+            bids_data = []
+            for bid in bids:
+                # Get files for each bid
+                bid_files = bid.files.all().order_by("-Uploaded_At")
+                
+                bid_data = {
+                    "bit_id": bid.bit_id,
+                    "title": bid.title,
+                    "description": bid.description,
+                    "date": bid.date,
+                    "cost": bid.cost,
+                    "is_accepted": bid.Is_Accepted,
+                    "created_by": bid.created_by.username if bid.created_by else None,
+                    "files": [
+                        {
+                            "file_id": file.file_id,
+                            "file_name": file.file_name,
+                            "file_type": file.file_type,
+                            "file_size": file.file_size,
+                            "uploaded_at": file.Uploaded_At,
+                        }
+                        for file in bid_files
+                    ]
+                }
+                bids_data.append(bid_data)
+            
+            # Prepare summary statistics
+            summary = {
+                "total_bids": len(bids_data),
+                "accepted_bids": len([bid for bid in bids_data if bid["is_accepted"] is True]),
+                "pending_bids": len([bid for bid in bids_data if bid["is_accepted"] is None]),
+                "rejected_bids": len([bid for bid in bids_data if bid["is_accepted"] is False]),
+                "lowest_bid": min([bid["cost"] for bid in bids_data]) if bids_data else None,
+                "highest_bid": max([bid["cost"] for bid in bids_data]) if bids_data else None,
+                "average_bid": sum([bid["cost"] for bid in bids_data]) / len(bids_data) if bids_data else None,
+                "tender_files_count": len(tender_files),
+                "total_bid_files": sum([len(bid["files"]) for bid in bids_data])
+            }
+            
+            response_data = {
+                "tender": tender_data,
+                "bids": bids_data,
+                "summary": summary
+            }
+            
+            return Response(
+                {
+                    "message": "Tender and bids data retrieved successfully",
+                    "data": response_data
+                },
+                status=status.HTTP_200_OK
+            )
+            
+        except Tender.DoesNotExist:
+            return Response(
+                {"message": "Tender not found.", "data": {}},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except Exception as e:
+            logger.error(f"Error in Tender_and_Bids_files_By_Tender_Id: {str(e)}")
+            return Response(
+                {"message": f"An error occurred: {str(e)}", "data": {}},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+            
+
+
+
 
 class StandardPagination(PageNumberPagination):
     page_size = 5
@@ -136,11 +263,11 @@ class Get_TenderFile_Data(APIView):
             if not file_id:
                 return Response(
                     {"message": "file_id is required", "data": []},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+                    status=status.HTTP_400_BAD_REQUEST,                )
                 
             tender_file = Tender_Files.objects.get(file_id=file_id)
-              # For file downloads, we need to handle differently since we're returning binary data
+            
+            # For file downloads, we need to handle differently since we're returning binary data
             # We'll return metadata in a standard format when requested
             if request.query_params.get("metadata_only") == "true":
                 file_metadata = {
@@ -190,7 +317,7 @@ class Create_TenderView(APIView):
                 start_date=data.get("start_date"),
                 end_date=data.get("end_date"),
                 budget=data.get("budget"),
-                created_by=request.user,  # Assuming the user is authenticated
+                created_by=request.user, 
             )
 
             # Handle file uploads
@@ -469,119 +596,5 @@ class Delete_TenderView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-class Evaluate_Tender_Bits(APIView):
-    """View to evaluate tenders based on terms and proposals."""
 
-    permission_classes = [IsAuthenticated, IsSuperUser]
 
-    async def post(self, request):
-        """
-        Evaluate tender proposals based on terms file and proposal files.
-        """
-        try:
-            # Get tender file ID from request
-            tender_file_id = request.data.get("tender_file_id")
-            if not tender_file_id:
-                return Response(
-                    {"message": "Terms file is required", "data": []},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            # Get proposal file IDs from request
-            proposal_file_ids = request.data.get("Bits_Proposal_file_ids", [])
-            if not proposal_file_ids:
-                return Response(
-                    {"message": "At least one proposal file is required", "data": []},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            if not isinstance(proposal_file_ids, list):
-                proposal_file_ids = [proposal_file_ids]
-
-            # Get terms file data
-            try:
-                tender_file = Tender_Files.objects.get(file_id=tender_file_id)
-                terms_file_data = {
-                    'name': tender_file.file_name,
-                    'content_type': tender_file.file_type,
-                    'size': tender_file.file_size,
-                    'data': tender_file.file_data
-                }
-            except Tender_Files.DoesNotExist:
-                return Response(
-                    {"message": f"Terms file with ID {tender_file_id} not found", "data": []},
-                    status=status.HTTP_404_NOT_FOUND,
-                )
-
-            # Get proposals file data
-            proposals_file_data = []
-            for file_id in proposal_file_ids:
-                try:
-                    bit_file = Bit_Files.objects.get(file_id=file_id)
-                    proposals_file_data.append({
-                        'name': bit_file.file_name,
-                        'content_type': bit_file.file_type,
-                        'size': bit_file.file_size,
-                        'data': bit_file.file_data
-                    })
-                except Bit_Files.DoesNotExist:
-                    return Response(
-                        {"message": f"Proposal file with ID {file_id} not found", "data": []},
-                        status=status.HTTP_404_NOT_FOUND,
-                    )
-
-            # Create UploadedFile objects for terms and proposals
-            from django.core.files.uploadedfile import SimpleUploadedFile
-            
-            terms = SimpleUploadedFile(
-                terms_file_data['name'],
-                terms_file_data['data'],
-                content_type=terms_file_data['content_type']
-            )
-
-            proposals = []
-            for prop in proposals_file_data:
-                proposal_file = SimpleUploadedFile(
-                    prop['name'],
-                    prop['data'],
-                    content_type=prop['content_type']
-                )
-                proposals.append(proposal_file)
-
-            # Initialize the evaluator and process the files
-            evaluator = TenderEvaluator()
-            
-            # Get the top N parameter (default to 3 if not provided)
-            top_n = int(request.data.get("top_n", 3))
-            
-            # Evaluate the proposals
-            result = await evaluator.evaluate_tender(terms, proposals, top_n)
-            
-            return Response(
-                {
-                    "message": "Evaluation completed successfully",
-                    "data": result
-                },
-                status=status.HTTP_200_OK
-            )
-            
-        except ValidationError as e:
-            return Response(
-                {"message": str(e), "data": []},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        except (Tender_Files.DoesNotExist, Bit_Files.DoesNotExist) as e:
-            return Response(
-                {"message": str(e), "data": []},
-                status=status.HTTP_404_NOT_FOUND
-            )
-        except ValueError as e:
-            return Response(
-                {"message": f"Invalid parameter: {str(e)}", "data": []},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        except Exception as e:
-            logger.error(f"Error in tender evaluation: {str(e)}", exc_info=True)
-            return Response(
-                {"message": f"Evaluation failed: {str(e)}", "data": []},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
