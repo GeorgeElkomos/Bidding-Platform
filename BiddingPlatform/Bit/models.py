@@ -6,7 +6,8 @@ class Bit_Files(models.Model):
     bit = models.ForeignKey(
         "Bit", on_delete=models.CASCADE, related_name="files", db_column="bit_id"
     )
-    file_name = models.CharField(max_length=100, unique=True)
+    # admin_type = models.CharField(max_length=50, default="bit")
+    file_name = models.CharField(max_length=100)
     file_type = models.CharField(max_length=255)
     file_size = models.PositiveIntegerField()
     file_data = models.BinaryField()

@@ -1,3 +1,4 @@
+from enum import Enum
 from django.db import models
 from django.contrib.auth.models import (
     AbstractBaseUser,
@@ -14,7 +15,7 @@ class VAT_Certificate_Manager(models.Model):
         related_name="vat_certificates",
         db_column="User_Id",
     )
-    File_Name = models.CharField(max_length=100, unique=True)
+    File_Name = models.CharField(max_length=100)
     File_Type = models.CharField(max_length=255)
     File_Size = models.PositiveIntegerField()
     File_Data = models.BinaryField()
@@ -37,12 +38,31 @@ class User_Manager(BaseUserManager):
         extra_fields.setdefault("is_superuser", True)
         extra_fields.setdefault("Is_Accepted", True)
         return self.create_user(username, email, password, **extra_fields)
+    
+    def create_technical_admin(self, username, email, password=None, **extra_fields):
+        extra_fields.setdefault("is_superuser", True)
+        extra_fields.setdefault("Is_Accepted", True)
+        extra_fields.setdefault("_admin_type", "technical")
+        return self.create_user(username, email, password, **extra_fields)
+    
+    def create_commercial_admin(self, username, email, password=None, **extra_fields):
+        extra_fields.setdefault("is_superuser", True)
+        extra_fields.setdefault("Is_Accepted", True)
+        extra_fields.setdefault("_admin_type", "commercial")
+        return self.create_user(username, email, password, **extra_fields)
 
+
+class AdminType(Enum):
+    TECHNICAL = 'technical'
+    COMMERCIAL = 'commercial'
+    
+    @classmethod
+    def choices(cls):
+        return [(tag.value, tag.name.replace('_', ' ').title() + ' Admin') for tag in cls]
 
 class User(AbstractBaseUser, PermissionsMixin):
     User_Id = models.AutoField(primary_key=True)
     username = models.CharField(max_length=150, unique=True)
-    email = models.EmailField(unique=True)
     name = models.CharField(max_length=100, blank=True)
     address = models.CharField(max_length=255, blank=True)
     phone_number = models.CharField(max_length=15, blank=True)
@@ -50,13 +70,21 @@ class User(AbstractBaseUser, PermissionsMixin):
     website = models.URLField(blank=True)
     CR_number = models.CharField(
         max_length=50, blank=True
-    )  # Commercial Registration number
-
+    ) # Commercial Registration number
+    
     Is_Accepted = models.BooleanField(
         default=None, blank=True, null=True
     )  # Indicates if the company is accepted
+    
     is_superuser = models.BooleanField(default=False)
-
+    ADMIN_TYPES = [e for e in AdminType]
+    _admin_type = models.CharField(
+        max_length=20,
+        choices=AdminType.choices(),
+        default=None,
+        blank=True,
+        db_column='admin_type'
+    )
     objects = User_Manager()
 
     USERNAME_FIELD = "username"
@@ -69,6 +97,22 @@ class User(AbstractBaseUser, PermissionsMixin):
         verbose_name = "XX_User"
         verbose_name_plural = "XX_Users"
         db_table = "xx_user"
+        
+        
+    @property
+    def admin_type(self):
+        if self._admin_type:
+            return AdminType(self._admin_type)
+        return None
+
+    @admin_type.setter
+    def admin_type(self, value):
+        if isinstance(value, AdminType):
+            self._admin_type = value.value
+        elif value is None:
+            self._admin_type = None
+        else:
+            raise ValueError("admin_type must be an AdminType enum or None")
 
 
 class NotificationReadStatus(models.Model):

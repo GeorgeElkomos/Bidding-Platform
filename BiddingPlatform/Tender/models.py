@@ -6,7 +6,7 @@ class Tender_Files(models.Model):
     tender = models.ForeignKey(
         "Tender", on_delete=models.CASCADE, related_name="files", db_column="tender_id"
     )
-    file_name = models.CharField(max_length=100, unique=True)
+    file_name = models.CharField(max_length=100)
     file_type = models.CharField(max_length=255)
     file_size = models.PositiveIntegerField()
     file_data = models.BinaryField()

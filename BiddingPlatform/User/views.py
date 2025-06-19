@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from Tender.permissions import IsSuperUser
-from User.models import Notification, User, VAT_Certificate_Manager
+from User.models import AdminType, Notification, User, VAT_Certificate_Manager
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth import authenticate
@@ -426,6 +426,23 @@ class Delete_All_UsersView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=400)
 
+class Get_Admin_Types(APIView):
+    """View to get all admin types."""
+
+    permission_classes = [
+        IsAuthenticated,
+        IsSuperUser,
+    ]  # Ensure the user is authenticated
+
+    def get(self, request):
+        try:
+            admin_types = [e.value for e in User.ADMIN_TYPES]  # Return string values
+            return Response(
+                {"message": "Admin types retrieved successfully.", "data": admin_types},
+                status=status.HTTP_200_OK,
+            )
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 class Create_Super_User(APIView):
     """View to create a superuser."""
@@ -437,6 +454,10 @@ class Create_Super_User(APIView):
 
     def post(self, request):
         try:
+            try:
+                admin_type = AdminType(request.data.get("admin_type", None))
+            except ValueError:
+                admin_type = None  # or handle the error as you wish
             username = request.data.get("username")
             email = request.data.get("email")
             password = request.data.get("password")
@@ -446,10 +467,20 @@ class Create_Super_User(APIView):
                     {"error": "Username, email, and password are required."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-
-            user = User.objects.create_superuser(
-                username=username, email=email, password=password
-            )
+            if admin_type == AdminType.TECHNICAL:
+                user = User.objects.create_technical_admin(
+                username=username,
+                email=email,
+                password=password)
+            elif admin_type == AdminType.COMMERCIAL:
+                user = User.objects.create_commercial_admin(
+                username=username,
+                email=email,
+                password=password)
+            else:
+                user = User.objects.create_superuser(
+                    username=username, email=email, password=password
+                )
             Notification.send_notification(
                 message="New superuser created", target_type="SUPER"
             )
@@ -823,3 +854,5 @@ class Update_UserView(APIView):
             return Response(
                 {"message": str(e), "data": []}, status=status.HTTP_400_BAD_REQUEST
             )
+
+
