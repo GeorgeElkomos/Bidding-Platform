@@ -1,0 +1,352 @@
+{
+  "endpoint_documentation": {
+    "endpoint_name": "Tender History",
+    "url": "http://127.0.0.1:8000/api/Tender/history/",
+    "method": "GET",
+    "description": "Retrieves all tenders that have at least one accepted bid. This endpoint returns tenders with pagination and search functionality, specifically filtering for tenders where bids have been accepted (Is_Accepted=True).",
+    "authentication": {
+      "required": true,
+      "type": "Token Authentication",
+      "description": "User must be authenticated to access this endpoint"
+    },
+    "headers": {
+      "required": {
+        "Authorization": {
+          "type": "string",
+          "format": "Token <your_token_here>",
+          "description": "Authentication token for the user",
+          "example": "Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b"
+        },
+        "Content-Type": {
+          "type": "string",
+          "value": "application/json",
+          "description": "Content type header"
+        }
+      },
+      "optional": {
+        "Accept": {
+          "type": "string",
+          "value": "application/json",
+          "description": "Accept header for response format"
+        }
+      }
+    },
+    "query_parameters": {
+      "page": {
+        "type": "integer",
+        "required": false,
+        "default": 1,
+        "description": "Page number for pagination",
+        "example": 1
+      },
+      "page_size": {
+        "type": "integer",
+        "required": false,
+        "default": 5,
+        "maximum": 100,
+        "description": "Number of items per page",
+        "example": 5
+      },
+      "search": {
+        "type": "string",
+        "required": false,
+        "default": "",
+        "description": "Search query to filter tenders by title, description, or creator username",
+        "example": "construction project"
+      }
+    },
+    "request_examples": {
+      "basic_request": {
+        "url": "http://127.0.0.1:8000/api/Tender/history/",
+        "method": "GET",
+        "headers": {
+          "Authorization": "Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b",
+          "Content-Type": "application/json"
+        },
+        "description": "Basic request to get first page of tender history"
+      },
+      "paginated_request": {
+        "url": "http://127.0.0.1:8000/api/Tender/history/?page=2&page_size=10",
+        "method": "GET",
+        "headers": {
+          "Authorization": "Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b",
+          "Content-Type": "application/json"
+        },
+        "description": "Request for second page with 10 items per page"
+      },
+      "search_request": {
+        "url": "http://127.0.0.1:8000/api/Tender/history/?search=construction&page=1&page_size=5",
+        "method": "GET",
+        "headers": {
+          "Authorization": "Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b",
+          "Content-Type": "application/json"
+        },
+        "description": "Search for tenders containing 'construction' in title, description, or creator username"
+      }
+    },
+    "response_structure": {
+      "success_response": {
+        "status_code": 200,
+        "content_type": "application/json",
+        "structure": {
+          "count": {
+            "type": "integer",
+            "description": "Total number of tenders matching the criteria"
+          },
+          "next": {
+            "type": "string|null",
+            "description": "URL for the next page of results, null if this is the last page"
+          },
+          "previous": {
+            "type": "string|null",
+            "description": "URL for the previous page of results, null if this is the first page"
+          },
+          "results": {
+            "type": "object",
+            "properties": {
+              "message": {
+                "type": "string",
+                "description": "Success message"
+              },
+              "search_query": {
+                "type": "string",
+                "description": "The search query used (empty string if no search)"
+              },
+              "total_count": {
+                "type": "integer",
+                "description": "Total count of filtered tenders"
+              },
+              "data": {
+                "type": "array",
+                "description": "Array of tender objects",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "tender_id": {
+                      "type": "integer",
+                      "description": "Unique identifier for the tender"
+                    },
+                    "title": {
+                      "type": "string",
+                      "description": "Title of the tender"
+                    },
+                    "description": {
+                      "type": "string",
+                      "description": "Detailed description of the tender"
+                    },
+                    "start_date": {
+                      "type": "string",
+                      "format": "datetime",
+                      "description": "Start date and time of the tender"
+                    },
+                    "end_date": {
+                      "type": "string|null",
+                      "format": "datetime",
+                      "description": "End date and time of the tender, null if not set"
+                    },
+                    "budget": {
+                      "type": "string",
+                      "description": "Budget amount for the tender"
+                    },
+                    "created_by": {
+                      "type": "string|null",
+                      "description": "Username of the tender creator, null if user was deleted"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "response_examples": {
+      "successful_response": {
+        "status_code": 200,
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Frame-Options": "DENY",
+          "X-Content-Type-Options": "nosniff"
+        },
+        "body": {
+          "count": 15,
+          "next": "http://127.0.0.1:8000/api/Tender/history/?page=2&page_size=5",
+          "previous": null,
+          "results": {
+            "message": "Tender history retrieved successfully",
+            "search_query": "",
+            "total_count": 15,
+            "data": [
+              {
+                "tender_id": 101,
+                "title": "Website Development Project",
+                "description": "Full-stack web development for e-commerce platform with modern UI/UX design and payment integration",
+                "start_date": "2025-06-01T09:00:00Z",
+                "end_date": "2025-12-31T18:00:00Z",
+                "budget": "50000.00",
+                "created_by": "project_manager"
+              },
+              {
+                "tender_id": 102,
+                "title": "Mobile App Development",
+                "description": "Cross-platform mobile application for iOS and Android with real-time notifications",
+                "start_date": "2025-05-15T10:30:00Z",
+                "end_date": "2025-11-30T17:00:00Z",
+                "budget": "75000.00",
+                "created_by": "tech_lead"
+              },
+              {
+                "tender_id": 103,
+                "title": "Database Migration Services",
+                "description": "Migration of legacy database to modern cloud-based solution with data integrity assurance",
+                "start_date": "2025-04-20T08:00:00Z",
+                "end_date": "2025-08-15T16:00:00Z",
+                "budget": "25000.00",
+                "created_by": "data_architect"
+              },
+              {
+                "tender_id": 104,
+                "title": "Construction Project Management",
+                "description": "Complete project management for residential building construction including material sourcing",
+                "start_date": "2025-03-10T07:00:00Z",
+                "end_date": "2026-03-10T18:00:00Z",
+                "budget": "500000.00",
+                "created_by": "construction_manager"
+              },
+              {
+                "tender_id": 105,
+                "title": "IT Infrastructure Setup",
+                "description": "Setup and configuration of complete IT infrastructure for new office location",
+                "start_date": "2025-02-01T09:00:00Z",
+                "end_date": "2025-07-01T17:00:00Z",
+                "budget": "120000.00",
+                "created_by": "it_admin"
+              }
+            ]
+          }
+        }
+      },
+      "search_response": {
+        "status_code": 200,
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Frame-Options": "DENY",
+          "X-Content-Type-Options": "nosniff"
+        },
+        "body": {
+          "count": 2,
+          "next": null,
+          "previous": null,
+          "results": {
+            "message": "Tender history retrieved successfully",
+            "search_query": "construction",
+            "total_count": 2,
+            "data": [
+              {
+                "tender_id": 104,
+                "title": "Construction Project Management",
+                "description": "Complete project management for residential building construction including material sourcing",
+                "start_date": "2025-03-10T07:00:00Z",
+                "end_date": "2026-03-10T18:00:00Z",
+                "budget": "500000.00",
+                "created_by": "construction_manager"
+              },
+              {
+                "tender_id": 106,
+                "title": "Bridge Construction Tender",
+                "description": "Construction of pedestrian bridge with modern architectural design",
+                "start_date": "2025-01-15T08:00:00Z",
+                "end_date": "2025-12-15T17:00:00Z",
+                "budget": "750000.00",
+                "created_by": "civil_engineer"
+              }
+            ]
+          }
+        }
+      },
+      "empty_response": {
+        "status_code": 200,
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Frame-Options": "DENY",
+          "X-Content-Type-Options": "nosniff"
+        },
+        "body": {
+          "count": 0,
+          "next": null,
+          "previous": null,
+          "results": {
+            "message": "Tender history retrieved successfully",
+            "search_query": "nonexistent",
+            "total_count": 0,
+            "data": []
+          }
+        }
+      }
+    },
+    "error_responses": {
+      "unauthorized": {
+        "status_code": 401,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "detail": "Authentication credentials were not provided."
+        },
+        "description": "User is not authenticated or token is invalid"
+      },
+      "forbidden": {
+        "status_code": 403,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "detail": "You do not have permission to perform this action."
+        },
+        "description": "User doesn't have required permissions"
+      },
+      "server_error": {
+        "status_code": 500,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "message": "An error occurred: Database connection failed",
+          "data": {}
+        },
+        "description": "Internal server error occurred"
+      }
+    },
+    "curl_examples": {
+      "basic_curl": "curl -H \"Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b\" -H \"Content-Type: application/json\" \"http://127.0.0.1:8000/api/Tender/history/\"",
+      "paginated_curl": "curl -H \"Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b\" -H \"Content-Type: application/json\" \"http://127.0.0.1:8000/api/Tender/history/?page=2&page_size=10\"",
+      "search_curl": "curl -H \"Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b\" -H \"Content-Type: application/json\" \"http://127.0.0.1:8000/api/Tender/history/?search=construction&page=1&page_size=5\""
+    },
+    "notes": {
+      "important_notes": [
+        "This endpoint only returns tenders that have at least one accepted bid (Is_Accepted=True)",
+        "Tenders with only pending (None) or rejected (False) bids will not appear in this endpoint",
+        "The distinct() method ensures each tender appears only once even if it has multiple accepted bids",
+        "Search functionality searches across tender title, description, and creator username",
+        "Pagination follows Django REST framework pagination standards",
+        "All datetime fields are returned in ISO 8601 format with UTC timezone"
+      ],
+      "business_logic": [
+        "Tenders are ordered by start_date in descending order (newest first)",
+        "Search is case-insensitive and uses partial matching (contains)",
+        "Budget amounts are returned as decimal strings to preserve precision",
+        "Created_by field will be null if the user who created the tender was deleted"
+      ]
+    },
+    "related_endpoints": {
+      "active_tenders": {
+        "url": "http://127.0.0.1:8000/api/Tender/getall/",
+        "description": "Returns tenders that do NOT have accepted bids"
+      },
+      "tender_details": {
+        "url": "http://127.0.0.1:8000/api/Tender/details/",
+        "description": "Get detailed information about a specific tender"
+      }
+    }
+  }
+}

@@ -2,6 +2,7 @@ from django.urls import path
 
 from Tender.views import (
     List_All_TendersView,
+    TenderHistoryView,
     Create_TenderView,
     Get_TenderFile_Data,
     Tender_DetailView,
@@ -14,6 +15,7 @@ from Tender.views import (
 
 urlpatterns = [
     path("getall/", List_All_TendersView.as_view(), name="tender_list"),
+    path("history/", TenderHistoryView.as_view(), name="tender_history"),
     path("create/", Create_TenderView.as_view(), name="create_tender"),
     path("getfiledata/", Get_TenderFile_Data.as_view(), name="get_tender_file_data"),
     path("details/", Tender_DetailView.as_view(), name="tender_detail"),

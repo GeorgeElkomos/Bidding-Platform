@@ -160,8 +160,8 @@ class List_All_TendersView(APIView):
         # Get search query parameter
         search_query = request.query_params.get('search', '').strip()
         
-        # Start with all tenders
-        tenders = Tender.objects.all()
+        # Start with all tenders and exclude those that have accepted bids
+        tenders = Tender.objects.exclude(bits__Is_Accepted=True)
         
         # Apply search filter if search query is provided
         if search_query:
@@ -197,6 +197,55 @@ class List_All_TendersView(APIView):
             "total_count": tenders.count(),
             "data": tender_data
         })
+
+
+class TenderHistoryView(APIView):
+    """View to list all tenders that have accepted bids with search and pagination."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Get search query parameter
+        search_query = request.query_params.get('search', '').strip()
+        
+        # Start with tenders that have accepted bids
+        tenders = Tender.objects.filter(bits__Is_Accepted=True).distinct()
+        
+        # Apply search filter if search query is provided
+        if search_query:
+            tenders = tenders.filter(
+                Q(title__icontains=search_query) |
+                Q(description__icontains=search_query) |
+                Q(created_by__username__icontains=search_query)
+            )
+        
+        # Order by creation date (newest first)
+        tenders = tenders.order_by('-start_date')
+        
+        # Apply pagination
+        paginator = StandardPagination()
+        paginated_tenders = paginator.paginate_queryset(tenders, request)
+        
+        tender_data = [
+            {
+                "tender_id": tender.tender_id,
+                "title": tender.title,
+                "description": tender.description,
+                "start_date": tender.start_date,
+                "end_date": tender.end_date,
+                "budget": tender.budget,
+                "created_by": tender.created_by.username if tender.created_by else None,
+            }
+            for tender in paginated_tenders
+        ]
+        
+        return paginator.get_paginated_response({
+            "message": "Tender history retrieved successfully",
+            "search_query": search_query,
+            "total_count": tenders.count(),
+            "data": tender_data
+        })
+
 
 class Tender_DetailView(APIView):
     """View to get details of a specific tender by ID."""

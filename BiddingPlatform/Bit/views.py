@@ -179,16 +179,16 @@ class Get_All_My_BitsView(APIView):
             # Apply pagination
             paginator = StandardPagination()
             paginated_bits = paginator.paginate_queryset(bits, request)
-            
-            # Serialize the bits data
+              # Serialize the bits data
             bits_data = [
-                {
-                    "bit_id": bit.bit_id,
+                {                    "bit_id": bit.bit_id,
                     "title": bit.title,
                     # "description": bit.description,
                     "date": bit.date,
                     "cost": str(bit.cost),  # Convert Decimal to string
                     "is_accepted": bit.Is_Accepted,
+                    "creator_name": bit.created_by.name if bit.created_by else None,
+                    "creator_username": bit.created_by.username if bit.created_by else None,
                     "tender": {
                         "tender_id": bit.tender.tender_id,
                         "title": bit.tender.title,
@@ -235,9 +235,7 @@ class Get_Bit_DetailView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            bit = Bit.objects.get(bit_id=bit_id)
-
-            # Serialize the bit data
+            bit = Bit.objects.get(bit_id=bit_id)            # Serialize the bit data
             bit_data = {
                 "bit_id": bit.bit_id,
                 "title": bit.title,
@@ -252,6 +250,7 @@ class Get_Bit_DetailView(APIView):
                     else None
                 ),
                 "cost": str(bit.cost),  # Convert Decimal to string
+                "is_accepted": bit.Is_Accepted,
                 "tender": {
                     "tender_id": bit.tender.tender_id,
                     "title": bit.tender.title,
