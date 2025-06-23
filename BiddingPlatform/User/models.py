@@ -81,8 +81,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     _admin_type = models.CharField(
         max_length=20,
         choices=AdminType.choices(),
-        default=None,
+        default='technical',  # or 'commercial'
         blank=True,
+        null=False,  # <--- set to False now
         db_column='admin_type'
     )
     objects = User_Manager()

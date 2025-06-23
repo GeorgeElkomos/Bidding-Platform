@@ -1,12 +1,17 @@
 from django.db import models
-
+from User.models import AdminType
 
 class Bit_Files(models.Model):
     file_id = models.AutoField(primary_key=True)
     bit = models.ForeignKey(
         "Bit", on_delete=models.CASCADE, related_name="files", db_column="bit_id"
     )
-    # admin_type = models.CharField(max_length=50, default="bit")
+    admin_type = models.CharField(
+        max_length=50,
+        choices=AdminType.choices(),
+        null=False,
+        blank=False,
+    )
     file_name = models.CharField(max_length=100)
     file_type = models.CharField(max_length=255)
     file_size = models.PositiveIntegerField()

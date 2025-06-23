@@ -8,7 +8,7 @@ from django.db.models import Q
 from django.db import IntegrityError
 from django.http import FileResponse
 import io
-from User.models import Notification
+from User.models import AdminType, Notification
 from Tender.permissions import IsCompany, IsSuperUser
 
 from .models import Bit, Bit_Files
@@ -235,7 +235,25 @@ class Get_Bit_DetailView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+<<<<<<< Updated upstream
             bit = Bit.objects.get(bit_id=bit_id)            # Serialize the bit data
+=======
+            bit = Bit.objects.get(bit_id=bit_id)
+
+            # Determine which files to return based on user type
+            files_qs = bit.files.all()
+            if request.user.is_superuser:
+                admin_type = getattr(request.user, "admin_type", None)
+                if admin_type == AdminType.TECHNICAL:
+                    files_qs = files_qs.filter(admin_type=AdminType.TECHNICAL.value)
+                elif admin_type == AdminType.COMMERCIAL:
+                    files_qs = files_qs.filter(admin_type=AdminType.COMMERCIAL.value)
+                # If admin_type is None, treat as general admin and return all files
+            # else:  # Not a superuser, return all files (or adjust as needed)
+            #     files_qs = files_qs
+
+            # Serialize the bit data
+>>>>>>> Stashed changes
             bit_data = {
                 "bit_id": bit.bit_id,
                 "title": bit.title,
@@ -263,7 +281,7 @@ class Get_Bit_DetailView(APIView):
                         "file_size": file.file_size,
                         "uploaded_at": file.Uploaded_At,
                     }
-                    for file in bit.files.all()
+                    for file in files_qs
                 ],
             }
 
@@ -380,9 +398,9 @@ class Create_BitView(APIView):
             )
             
             # Handle file uploads
-            vat_files = request.FILES.getlist("files")
-            if vat_files:
-                for file in vat_files:
+            technical_files = request.FILES.getlist("Technical_files")
+            if technical_files:
+                for file in technical_files:
                     # Read the file data
                     file_data = file.read()
 
@@ -404,6 +422,33 @@ class Create_BitView(APIView):
                         file_type=file.content_type,
                         file_size=file.size,
                         file_data=file_data,
+                        admin_type=AdminType.TECHNICAL.value,  # Set admin type for technical files
+                    )
+            commercial_files = request.FILES.getlist("Commercial_files")
+            if commercial_files:
+                for file in commercial_files:
+                    # Read the file data
+                    file_data = file.read()
+
+                    # Create unique filenames with timestamp to avoid conflicts
+                    import datetime
+                    import os
+
+                    # Split the filename into name and extension
+                    file_name, file_extension = os.path.splitext(file.name)
+
+                    # Add current timestamp to ensure uniqueness
+                    timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
+                    unique_filename = f"{file_name}_{timestamp}{file_extension}"
+
+                    # Create the attachment record
+                    Bit_Files.objects.create(
+                        bit=bit,
+                        file_name=unique_filename,
+                        file_type=file.content_type,
+                        file_size=file.size,
+                        file_data=file_data,
+                        admin_type=AdminType.COMMERCIAL.value,  # Set admin type for commercial files
                     )
 
             bit_data = {
@@ -411,7 +456,8 @@ class Create_BitView(APIView):
                 "title": bit.title,
                 "description": bit.description,
                 "cost": str(bit.cost),
-                "date": bit.date,            }
+                "date": bit.date,
+            }
             # Notify the tender creator about the new bit
             Notification.send_notification(
                 message=f"New Bit Created for Tender {tender.title} by {user.username}", target_type="SUPER"
@@ -479,13 +525,8 @@ class Add_BitFileView(APIView):
             bit = Bit.objects.get(bit_id=bit_id)
 
             # Handle multiple file uploads
-            files = request.FILES.getlist("files")
-            if not files:
-                return Response(
-                    {"error": "At least one file is required", "data": []},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
+            files = request.FILES.getlist("Technical_files")
+            
             uploaded_files = []
 
             for file in files:
@@ -508,6 +549,7 @@ class Add_BitFileView(APIView):
                     file_type=file.content_type,
                     file_size=file.size,
                     file_data=file_data,
+                    admin_type=AdminType.TECHNICAL.value,  # Assuming these are technical files
                 )
 
                 uploaded_files.append(
@@ -517,6 +559,44 @@ class Add_BitFileView(APIView):
                         "original_filename": file.name,
                         "file_type": file.content_type,
                         "file_size": file.size,
+                        "type": bit_file.admin_type,
+                    }
+                )
+
+            # Handle multiple file uploads
+            files = request.FILES.getlist("Commercial_files")
+
+            for file in files:
+                # Read the file data as BLOB
+                file_data = file.read()
+
+                # Create unique filenames with timestamp if needed
+                import datetime
+                import os
+
+                # Split the filename into name and extension
+                file_name, file_extension = os.path.splitext(file.name)                # Add current timestamp to ensure uniqueness
+                timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
+                unique_filename = f"{file_name}_{timestamp}{file_extension}"
+
+                # Create the attachment record with BLOB data
+                bit_file = Bit_Files.objects.create(
+                    bit=bit,
+                    file_name=unique_filename,
+                    file_type=file.content_type,
+                    file_size=file.size,
+                    file_data=file_data,
+                    admin_type=AdminType.COMMERCIAL.value,  # Assuming these are commercial files
+                )
+
+                uploaded_files.append(
+                    {
+                        "file_id": bit_file.file_id,
+                        "file_name": unique_filename,
+                        "original_filename": file.name,
+                        "file_type": file.content_type,
+                        "file_size": file.size,
+                        "type": bit_file.admin_type,
                     }
                 )
 
