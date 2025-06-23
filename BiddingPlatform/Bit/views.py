@@ -8,6 +8,8 @@ from django.db.models import Q
 from django.db import IntegrityError
 from django.http import FileResponse
 import io
+import datetime
+import os
 from User.models import AdminType, Notification
 from Tender.permissions import IsCompany, IsSuperUser
 
@@ -178,14 +180,13 @@ class Get_All_My_BitsView(APIView):
             
             # Apply pagination
             paginator = StandardPagination()
-            paginated_bits = paginator.paginate_queryset(bits, request)
-              # Serialize the bits data
+            paginated_bits = paginator.paginate_queryset(bits, request)            # Serialize the bits data
             bits_data = [
-                {                    "bit_id": bit.bit_id,
+                {
+                    "bit_id": bit.bit_id,
                     "title": bit.title,
-                    # "description": bit.description,
                     "date": bit.date,
-                    "cost": str(bit.cost),  # Convert Decimal to string
+                    "cost": str(bit.cost),
                     "is_accepted": bit.Is_Accepted,
                     "creator_name": bit.created_by.name if bit.created_by else None,
                     "creator_username": bit.created_by.username if bit.created_by else None,
@@ -227,7 +228,7 @@ class Get_Bit_DetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        try:
+        try:            
             bit_id = request.query_params.get("bit_id")
             if not bit_id:
                 return Response(
@@ -235,9 +236,6 @@ class Get_Bit_DetailView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-<<<<<<< Updated upstream
-            bit = Bit.objects.get(bit_id=bit_id)            # Serialize the bit data
-=======
             bit = Bit.objects.get(bit_id=bit_id)
 
             # Determine which files to return based on user type
@@ -249,11 +247,8 @@ class Get_Bit_DetailView(APIView):
                 elif admin_type == AdminType.COMMERCIAL:
                     files_qs = files_qs.filter(admin_type=AdminType.COMMERCIAL.value)
                 # If admin_type is None, treat as general admin and return all files
-            # else:  # Not a superuser, return all files (or adjust as needed)
-            #     files_qs = files_qs
 
             # Serialize the bit data
->>>>>>> Stashed changes
             bit_data = {
                 "bit_id": bit.bit_id,
                 "title": bit.title,
@@ -538,7 +533,9 @@ class Add_BitFileView(APIView):
                 import os
 
                 # Split the filename into name and extension
-                file_name, file_extension = os.path.splitext(file.name)                # Add current timestamp to ensure uniqueness
+                file_name, file_extension = os.path.splitext(file.name)
+                
+                # Add current timestamp to ensure uniqueness
                 timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
                 unique_filename = f"{file_name}_{timestamp}{file_extension}"
 
@@ -575,7 +572,9 @@ class Add_BitFileView(APIView):
                 import os
 
                 # Split the filename into name and extension
-                file_name, file_extension = os.path.splitext(file.name)                # Add current timestamp to ensure uniqueness
+                file_name, file_extension = os.path.splitext(file.name)
+                
+                # Add current timestamp to ensure uniqueness
                 timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
                 unique_filename = f"{file_name}_{timestamp}{file_extension}"
 
@@ -801,3 +800,4 @@ class Bit_Request_RespondView(APIView):
                 {"message": str(e), "data": []},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+    
